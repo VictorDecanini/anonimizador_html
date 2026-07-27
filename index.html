@@ -144,14 +144,15 @@
       <div id="upload-desanon-area" class="upload-area">
         <div class="icone">📁</div>
         <div class="titulo">Clique ou arraste o arquivo anonimizado aqui</div>
-        <div class="subtitulo">CSV, TXT ou Excel (.xlsx/.xls)</div>
+        <div class="subtitulo">CSV, TXT, Excel (.xlsx/.xls), Word (.docx) ou PowerPoint (.pptx)</div>
       </div>
       <div id="upload-desanon-info" class="arquivo-info oculto"></div>
-      <input type="file" id="upload-desanon-input" accept=".csv,.txt,.xlsx,.xls" class="oculto">
+      <input type="file" id="upload-desanon-input" accept=".csv,.txt,.xlsx,.xls,.docx,.pptx" class="oculto">
+      <p class="legenda">PDF ainda não é suportado — o formato guarda texto de um jeito muito mais difícil de editar sem quebrar o layout.</p>
 
       <hr class="divisor">
       <button id="btn-iniciar-desanon" class="botao-primario" disabled>▶️ Iniciar desanonimização</button>
-      <p class="legenda">Ao clicar, o navegador vai pedir onde salvar o arquivo desanonimizado.</p>
+      <p class="legenda" id="legenda-salvamento-desanon">Ao clicar, o navegador vai pedir onde salvar o arquivo desanonimizado.</p>
       <div id="aviso-modo-blob-desanon" class="aviso oculto">Seu navegador não suporta salvar direto em disco durante o processamento — vai funcionar, mas pode ficar mais lento em arquivos muito grandes.</div>
 
       <div id="progresso-desanon" class="progresso-wrap oculto">
@@ -163,8 +164,9 @@
     <div id="resultado-desanon" class="cartao oculto">
       <div class="sucesso">✅ Desanonimização concluída — arquivo salvo</div>
       <div class="metricas">
-        <div class="metrica"><div class="valor" id="metrica-linhas-desanon">0</div><div class="rotulo">Linhas processadas</div></div>
+        <div class="metrica"><div class="valor" id="metrica-linhas-desanon">0</div><div class="rotulo" id="rotulo-metrica-desanon">Linhas processadas</div></div>
       </div>
+      <div id="detalhes-desanon"></div>
     </div>
 
   </div>
@@ -174,6 +176,8 @@
 
 <script src="lib/papaparse.min.js"></script>
 <script src="lib/xlsx.full.min.js"></script>
+<script src="lib/jszip.min.js"></script>
+<script src="docx-pptx.js"></script>
 <script src="core.js"></script>
 <script src="app.js"></script>
 </body>

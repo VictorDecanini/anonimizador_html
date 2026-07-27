@@ -713,7 +713,93 @@ function lerMapaCsv(file) {
   });
 }
 
+function ehDocx(nome) {
+  return /\.docx$/i.test(nome);
+}
+function ehPptx(nome) {
+  return /\.pptx$/i.test(nome);
+}
+
+async function iniciarDesanonimizacaoDocumento(file) {
+  const btn = document.getElementById("btn-iniciar-desanon");
+  btn.disabled = true;
+  document.getElementById("resultado-desanon").classList.add("oculto");
+  const progressoWrap = document.getElementById("progresso-desanon");
+  progressoWrap.classList.remove("oculto");
+  const barra = document.querySelector("#progresso-desanon .preenchido");
+  const texto = document.querySelector("#progresso-desanon .progresso-texto");
+  barra.style.width = "5%";
+  texto.textContent = "Lendo mapeamento...";
+
+  try {
+    const linhasMapeamento = await lerMapaCsv(estado.desanon.arquivoMapa);
+    const arrayBuffer = await file.arrayBuffer();
+
+    const aoProgredir = (fracao) => {
+      barra.style.width = `${Math.round(fracao * 100)}%`;
+      texto.textContent = `Processando documento... ${Math.round(fracao * 100)}%`;
+    };
+
+    let resultado, nomeSaida;
+    if (ehDocx(file.name)) {
+      resultado = await window.DesanonimizadorDocumentos.desanonimizarDocx(arrayBuffer, linhasMapeamento, aoProgredir);
+      nomeSaida = "documento_desanonimizado.docx";
+    } else {
+      resultado = await window.DesanonimizadorDocumentos.desanonimizarPptx(arrayBuffer, linhasMapeamento, aoProgredir);
+      nomeSaida = "apresentacao_desanonimizada.pptx";
+    }
+
+    const url = URL.createObjectURL(resultado.blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeSaida;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+    document.getElementById("resultado-desanon").classList.remove("oculto");
+    document.getElementById("rotulo-metrica-desanon").textContent = "Substituições feitas no texto";
+    document.getElementById("metrica-linhas-desanon").textContent = resultado.relatorio.substituicoes.length.toLocaleString("pt-BR");
+
+    const detalhes = document.getElementById("detalhes-desanon");
+    detalhes.innerHTML = "";
+    if (resultado.relatorio.naoEncontrados.size > 0) {
+      const aviso = document.createElement("div");
+      aviso.className = "aviso";
+      aviso.innerHTML =
+        `⚠️ ${resultado.relatorio.naoEncontrados.size} referência(s) citada(s) no texto não foram encontradas no mapeamento (ficaram como estavam): ` +
+        Array.from(resultado.relatorio.naoEncontrados).join(", ");
+      detalhes.appendChild(aviso);
+    }
+    if (resultado.numImagens > 0) {
+      const info = document.createElement("div");
+      info.className = "info";
+      info.textContent = `ℹ️ O documento tem ${resultado.numImagens} imagem(ns) embutida(s) (ex: gráficos salvos como figura). Texto dentro de imagens não é substituído automaticamente.`;
+      detalhes.appendChild(info);
+    }
+    if (typeof resultado.numGraficos === "number" && resultado.numGraficos > 0) {
+      const info = document.createElement("div");
+      info.className = "info";
+      info.textContent = `📊 ${resultado.numGraficos} gráfico(s) nativo(s) encontrado(s), ${resultado.graficosAtualizados} atualizado(s) automaticamente.`;
+      detalhes.appendChild(info);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Erro durante a desanonimização: " + err.message);
+  } finally {
+    btn.disabled = false;
+    progressoWrap.classList.add("oculto");
+  }
+}
+
 async function iniciarDesanonimizacao() {
+  const file = estado.desanon.arquivo;
+
+  if (ehDocx(file.name) || ehPptx(file.name)) {
+    return iniciarDesanonimizacaoDocumento(file);
+  }
+
   const btn = document.getElementById("btn-iniciar-desanon");
 
   let escritor;
@@ -728,6 +814,8 @@ async function iniciarDesanonimizacao() {
 
   btn.disabled = true;
   document.getElementById("resultado-desanon").classList.add("oculto");
+  document.getElementById("rotulo-metrica-desanon").textContent = "Linhas processadas";
+  document.getElementById("detalhes-desanon").innerHTML = "";
   const progressoWrap = document.getElementById("progresso-desanon");
   progressoWrap.classList.remove("oculto");
   if (escritor.modo === "blob") {
@@ -738,7 +826,6 @@ async function iniciarDesanonimizacao() {
     const linhasMapeamento = await lerMapaCsv(estado.desanon.arquivoMapa);
     const mapaReverso = Core.construirMapaReverso(linhasMapeamento);
 
-    const file = estado.desanon.arquivo;
     const sep = document.getElementById("separador-desanon").value;
     let encoding = document.getElementById("encoding-desanon").value;
     if (encoding === "auto" && !ehExcel(file.name)) encoding = await detectarEncoding(file);
