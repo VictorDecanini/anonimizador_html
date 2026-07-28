@@ -2,8 +2,12 @@
 
 const Core = window.AnonimizadorCore;
 
+const COLUNA_ORIGEM = "Arquivo_Origem";
+const LIMITE_SEGURO_SEM_STREAMING = 150 * 1024 * 1024; // 150MB
+const LIMITE_RECOMENDADO_TOTAL = 2 * 1024 * 1024 * 1024; // 2GB
+
 const estado = {
-  anon: { arquivo: null, colunasArquivo: null, colunasAlvo: null, colunasFiltro: null, valoresUnicos: null, encoding: null },
+  anon: { arquivos: [], colunasArquivo: null, colunasAlvo: null, colunasFiltro: null, valoresUnicos: null, encoding: null },
   desanon: { arquivo: null, mapa: null },
 };
 
@@ -115,38 +119,9 @@ function lerAmostraExcel(file, nLinhas = 2000) {
 }
 
 // ---------------------------------------------------------------------------
-// Coleta de valores únicos (para os filtros) — full scan do arquivo
+// Coleta de valores únicos (para os filtros) — feita em coletarValoresUnicosMultiplos,
+// que também cobre o caso de um único arquivo.
 // ---------------------------------------------------------------------------
-function coletarValoresUnicos(file, sep, encoding, colunasFiltro, aoProgredir) {
-  if (Object.keys(colunasFiltro).length === 0) return Promise.resolve({});
-
-  const unicos = {};
-  for (const col of Object.keys(colunasFiltro)) unicos[col] = new Set();
-
-  return new Promise((resolve, reject) => {
-    Papa.parse(file, {
-      header: true,
-      delimiter: sep,
-      encoding,
-      skipEmptyLines: true,
-      chunk: (results, parser) => {
-        for (const linha of results.data) {
-          for (const col of Object.keys(colunasFiltro)) {
-            const v = linha[col];
-            if (v !== null && v !== undefined && String(v).trim() !== "") unicos[col].add(String(v));
-          }
-        }
-        if (aoProgredir) aoProgredir(Math.min(results.meta.cursor / file.size, 1));
-      },
-      complete: () => {
-        const saida = {};
-        for (const [col, set] of Object.entries(unicos)) saida[col] = Array.from(set).sort();
-        resolve(saida);
-      },
-      error: reject,
-    });
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Multiselect customizado (chips + painel de opções com busca)
@@ -282,91 +257,203 @@ function configurarUploadAnon() {
     })
   );
   area.addEventListener("drop", (e) => {
-    if (e.dataTransfer.files.length > 0) receberArquivoAnon(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files.length > 0) adicionarArquivosAnon(Array.from(e.dataTransfer.files));
   });
   input.addEventListener("change", (e) => {
-    if (e.target.files.length > 0) receberArquivoAnon(e.target.files[0]);
+    if (e.target.files.length > 0) adicionarArquivosAnon(Array.from(e.target.files));
+    input.value = ""; // permite selecionar o mesmo arquivo de novo depois de remover
   });
 
   document.getElementById("btn-iniciar-anon").addEventListener("click", iniciarAnonimizacao);
 }
 
-async function receberArquivoAnon(file) {
-  estado.anon.arquivo = file;
-  const info = document.getElementById("upload-anon-info");
-  info.innerHTML = `📄 <strong>${file.name}</strong> — ${(file.size / 1_048_576).toFixed(1)} MB`;
-  info.classList.remove("oculto");
+function adicionarArquivosAnon(novosArquivos) {
+  // Evita duplicar o mesmo arquivo (mesmo nome + tamanho) se selecionado de novo.
+  for (const novo of novosArquivos) {
+    const jaExiste = estado.anon.arquivos.some((a) => a.name === novo.name && a.size === novo.size);
+    if (!jaExiste) estado.anon.arquivos.push(novo);
+  }
+  renderizarListaArquivosAnon();
+  analisarArquivosAnon();
+}
+
+function removerArquivoAnon(indice) {
+  estado.anon.arquivos.splice(indice, 1);
+  renderizarListaArquivosAnon();
+  if (estado.anon.arquivos.length > 0) {
+    analisarArquivosAnon();
+  } else {
+    document.getElementById("bloco-config-anon").classList.add("oculto");
+    document.getElementById("resultado-anon").classList.add("oculto");
+  }
+}
+
+function renderizarListaArquivosAnon() {
+  const lista = document.getElementById("lista-arquivos-anon");
+  const arquivos = estado.anon.arquivos;
+
+  if (arquivos.length === 0) {
+    lista.classList.add("oculto");
+    lista.innerHTML = "";
+    return;
+  }
+
+  lista.classList.remove("oculto");
+  lista.innerHTML = "";
+  let tamanhoTotal = 0;
+
+  arquivos.forEach((arquivo, i) => {
+    tamanhoTotal += arquivo.size;
+    const item = document.createElement("div");
+    item.className = "item-arquivo";
+    item.innerHTML =
+      `<span class="nome">📄 ${arquivo.name} — ${(arquivo.size / 1_048_576).toFixed(1)} MB</span>` +
+      `<button class="remover" title="Remover">✕</button>`;
+    item.querySelector(".remover").addEventListener("click", () => removerArquivoAnon(i));
+    lista.appendChild(item);
+  });
+
+  const total = document.createElement("div");
+  total.className = "total";
+  const totalGB = tamanhoTotal / (1024 * 1024 * 1024);
+  total.textContent = `${arquivos.length} arquivo(s) — total: ${totalGB >= 1 ? totalGB.toFixed(2) + " GB" : (tamanhoTotal / 1_048_576).toFixed(1) + " MB"}`;
+  lista.appendChild(total);
+
+  const avisoTamanho = document.getElementById("aviso-tamanho-arquivo-anon");
+  if (!window.showSaveFilePicker && tamanhoTotal > LIMITE_SEGURO_SEM_STREAMING) {
+    avisoTamanho.innerHTML =
+      `⚠️ O total selecionado passa de 150MB e seu navegador não suporta o modo de gravação direta em disco ` +
+      `(mais seguro para arquivos grandes). Há um risco real de a aba travar por falta de memória. ` +
+      `<strong>Recomendamos fortemente usar Google Chrome ou Microsoft Edge atualizados.</strong>`;
+    avisoTamanho.classList.remove("oculto");
+  } else if (tamanhoTotal > LIMITE_RECOMENDADO_TOTAL) {
+    avisoTamanho.innerHTML =
+      `⚠️ O total selecionado passa de 2GB. Deve funcionar em Chrome/Edge, mas o processamento pode demorar vários minutos.`;
+    avisoTamanho.classList.remove("oculto");
+  } else {
+    avisoTamanho.classList.add("oculto");
+  }
+}
+
+async function obterColunasArquivo(file, sep, encoding) {
+  if (ehExcel(file.name)) {
+    const r = await lerAmostraExcel(file, 1);
+    return r.colunas;
+  }
+  const r = await lerAmostraCsv(file, sep, encoding, 1);
+  return r.colunas;
+}
+
+async function analisarArquivosAnon() {
+  const arquivos = estado.anon.arquivos;
+  if (arquivos.length === 0) return;
 
   document.getElementById("bloco-config-anon").classList.add("oculto");
   document.getElementById("resultado-anon").classList.add("oculto");
   document.getElementById("erro-analise-anon").classList.add("oculto");
   document.getElementById("aviso-sem-colunas-anon").classList.add("oculto");
 
-  const LIMITE_SEGURO_SEM_STREAMING = 150 * 1024 * 1024; // 150MB
-  const avisoTamanho = document.getElementById("aviso-tamanho-arquivo-anon");
-  if (!window.showSaveFilePicker && file.size > LIMITE_SEGURO_SEM_STREAMING) {
-    avisoTamanho.innerHTML =
-      `⚠️ Este arquivo tem ${(file.size / 1_048_576).toFixed(0)}MB e seu navegador não suporta o modo de gravação ` +
-      `direta em disco (mais seguro para arquivos grandes). Há um risco real de a aba travar por falta de memória. ` +
-      `<strong>Recomendamos fortemente usar Google Chrome ou Microsoft Edge atualizados</strong> para arquivos acima de 150MB.`;
-    avisoTamanho.classList.remove("oculto");
-  } else {
-    avisoTamanho.classList.add("oculto");
-  }
-
   const spinner = document.getElementById("spinner-analise-anon");
   spinner.classList.remove("oculto");
   spinner.innerHTML = `<span class="spinner"></span> Analisando colunas e valores...`;
 
   try {
+    const primeiro = arquivos[0];
     let colunas, linhasAmostra, encoding;
     const sep = document.getElementById("separador-anon").value;
     const encSelecionado = document.getElementById("encoding-anon").value;
 
-    if (ehExcel(file.name)) {
-      const r = await lerAmostraExcel(file);
+    if (ehExcel(primeiro.name)) {
+      const r = await lerAmostraExcel(primeiro);
       colunas = r.colunas;
       linhasAmostra = r.linhas;
       encoding = null;
     } else {
-      encoding = encSelecionado === "auto" ? await detectarEncoding(file) : encSelecionado;
-      const r = await lerAmostraCsv(file, sep, encoding);
+      encoding = encSelecionado === "auto" ? await detectarEncoding(primeiro) : encSelecionado;
+      const r = await lerAmostraCsv(primeiro, sep, encoding);
       colunas = r.colunas;
       linhasAmostra = r.linhas;
+    }
+
+    // Se houver mais de um arquivo, todos precisam ter exatamente as
+    // mesmas colunas do primeiro -- senão o empilhamento fica sem sentido.
+    if (arquivos.length > 1) {
+      const divergentes = [];
+      for (let i = 1; i < arquivos.length; i++) {
+        const colsOutro = await obterColunasArquivo(arquivos[i], sep, encoding);
+        const igual = colunas.length === colsOutro.length && colunas.every((c, idx) => c === colsOutro[idx]);
+        if (!igual) divergentes.push(arquivos[i].name);
+      }
+      if (divergentes.length > 0) {
+        throw new Error(
+          `Estes arquivos têm colunas diferentes do primeiro (${primeiro.name}) e não podem ser empilhados: ${divergentes.join(", ")}. Remova-os ou ajuste as colunas antes de continuar.`
+        );
+      }
     }
 
     const { colunasAlvo, colunasFiltro } = Core.analisarAmostra(colunas, linhasAmostra);
 
     spinner.innerHTML = `<span class="spinner"></span> Coletando valores para os filtros...`;
-    const valoresUnicos = ehExcel(file.name)
-      ? coletarValoresUnicosExcel((await lerAmostraExcel(file, Infinity)).todasLinhas, colunasFiltro)
-      : await coletarValoresUnicos(file, sep, encoding, colunasFiltro);
+    const valoresUnicos = await coletarValoresUnicosMultiplos(arquivos, sep, encoding, colunasFiltro);
 
-    estado.anon.colunasArquivo = colunas;
+    // Coluna sintética com o nome do arquivo de origem -- útil sobretudo
+    // quando há mais de um arquivo empilhado, mas fica disponível sempre.
+    const colunasArquivoFinal = [...colunas, COLUNA_ORIGEM];
+    const colunasFiltroFinal = { ...colunasFiltro, [COLUNA_ORIGEM]: "arquivo de origem" };
+    valoresUnicos[COLUNA_ORIGEM] = arquivos.map((a) => a.name);
+
+    estado.anon.colunasArquivo = colunasArquivoFinal;
     estado.anon.colunasAlvo = colunasAlvo;
-    estado.anon.colunasFiltro = colunasFiltro;
+    estado.anon.colunasFiltro = colunasFiltroFinal;
     estado.anon.valoresUnicos = valoresUnicos;
     estado.anon.encoding = encoding;
 
     renderizarConfigAnon();
   } catch (err) {
     console.error(err);
-    document.getElementById("erro-analise-anon").textContent = "Erro ao analisar o arquivo: " + err.message;
+    document.getElementById("erro-analise-anon").textContent = "Erro ao analisar os arquivos: " + err.message;
     document.getElementById("erro-analise-anon").classList.remove("oculto");
   } finally {
     spinner.classList.add("oculto");
   }
 }
 
-function coletarValoresUnicosExcel(todasLinhas, colunasFiltro) {
+async function coletarValoresUnicosMultiplos(arquivos, sep, encoding, colunasFiltro) {
+  if (Object.keys(colunasFiltro).length === 0) return {};
   const unicos = {};
   for (const col of Object.keys(colunasFiltro)) unicos[col] = new Set();
-  for (const linha of todasLinhas) {
-    for (const col of Object.keys(colunasFiltro)) {
-      const v = linha[col];
-      if (v !== null && v !== undefined && String(v).trim() !== "") unicos[col].add(String(v));
+
+  for (const arquivo of arquivos) {
+    if (ehExcel(arquivo.name)) {
+      const r = await lerAmostraExcel(arquivo, Infinity);
+      for (const linha of r.todasLinhas) {
+        for (const col of Object.keys(colunasFiltro)) {
+          const v = linha[col];
+          if (v !== null && v !== undefined && String(v).trim() !== "") unicos[col].add(String(v));
+        }
+      }
+    } else {
+      await new Promise((resolve, reject) => {
+        Papa.parse(arquivo, {
+          header: true,
+          delimiter: sep,
+          encoding,
+          skipEmptyLines: true,
+          chunk: (results) => {
+            for (const linha of results.data) {
+              for (const col of Object.keys(colunasFiltro)) {
+                const v = linha[col];
+                if (v !== null && v !== undefined && String(v).trim() !== "") unicos[col].add(String(v));
+              }
+            }
+          },
+          complete: resolve,
+          error: reject,
+        });
+      });
     }
   }
+
   const saida = {};
   for (const [col, set] of Object.entries(unicos)) saida[col] = Array.from(set).sort();
   return saida;
@@ -497,10 +584,10 @@ async function iniciarAnonimizacao() {
     if (sel.length > 0) filtros[col] = sel;
   }
 
-  const LIMITE_SEGURO_SEM_STREAMING = 150 * 1024 * 1024;
-  if (!window.showSaveFilePicker && estado.anon.arquivo.size > LIMITE_SEGURO_SEM_STREAMING) {
+  const tamanhoTotal = estado.anon.arquivos.reduce((s, a) => s + a.size, 0);
+  if (!window.showSaveFilePicker && tamanhoTotal > LIMITE_SEGURO_SEM_STREAMING) {
     const continuar = confirm(
-      "Este arquivo é grande e seu navegador não suporta o modo mais seguro de gravação. " +
+      "O total dos arquivos é grande e seu navegador não suporta o modo mais seguro de gravação. " +
       "Existe um risco real de a aba travar por falta de memória.\n\n" +
       "Recomendamos cancelar e usar Google Chrome ou Microsoft Edge atualizados.\n\n" +
       "Quer continuar mesmo assim?"
@@ -543,17 +630,18 @@ async function iniciarAnonimizacao() {
   }
 }
 
-function processarAnonimizacao(colunasFinais, filtros, escritor) {
-  const file = estado.anon.arquivo;
+async function processarAnonimizacao(colunasFinais, filtros, escritor) {
+  const arquivos = estado.anon.arquivos;
   const sep = document.getElementById("separador-anon").value;
   const encoding = estado.anon.encoding;
   const colunasAlvo = estado.anon.colunasAlvo;
-  const colunasArquivo = estado.anon.colunasArquivo;
+  const colunasArquivo = estado.anon.colunasArquivo; // já inclui COLUNA_ORIGEM
   const colunasSaida = colunasArquivo.filter((c) => colunasFinais.has(c));
   const colunasAlvoFiltradas = {};
   for (const [c, idx] of Object.entries(colunasAlvo)) {
     if (colunasFinais.has(c)) colunasAlvoFiltradas[c] = idx;
   }
+  const precisaOrigem = colunasFinais.has(COLUNA_ORIGEM) || Boolean(filtros[COLUNA_ORIGEM]);
 
   const mapeador = new Core.MapeadorAnonimizacao();
   const inicio = performance.now();
@@ -571,8 +659,13 @@ function processarAnonimizacao(colunasFinais, filtros, escritor) {
       }
     : null;
 
-  function transformarLinhas(linhasBrutas) {
+  function transformarLinhas(linhasBrutas, nomeArquivoAtual) {
     linhasLidas += linhasBrutas.length;
+
+    if (precisaOrigem) {
+      for (const linha of linhasBrutas) linha[COLUNA_ORIGEM] = nomeArquivoAtual;
+    }
+
     let linhas = filtrar ? linhasBrutas.filter(filtrar) : linhasBrutas;
 
     for (const linha of linhas) {
@@ -591,46 +684,46 @@ function processarAnonimizacao(colunasFinais, filtros, escritor) {
     promessasEscrita.push(escritor.escrever(texto + "\n"));
   }
 
-  if (ehExcel(file.name)) {
-    return lerAmostraExcel(file, Infinity).then(async (r) => {
-      transformarLinhas(r.todasLinhas);
-      await Promise.all(promessasEscrita);
-      atualizarProgressoAnon(1, linhasMantidas, linhasLidas, inicio);
-      return finalizarAnonimizacao(mapeador, linhasMantidas, linhasLidas);
-    });
+  const tamanhoTotal = arquivos.reduce((s, a) => s + a.size, 0) || 1;
+  let bytesAnteriores = 0;
+
+  for (const arquivo of arquivos) {
+    if (ehExcel(arquivo.name)) {
+      const r = await lerAmostraExcel(arquivo, Infinity);
+      transformarLinhas(r.todasLinhas, arquivo.name);
+      bytesAnteriores += arquivo.size;
+      atualizarProgressoAnon(bytesAnteriores / tamanhoTotal, linhasMantidas, linhasLidas, inicio);
+    } else {
+      const bytesAntesDesteArquivo = bytesAnteriores;
+      await new Promise((resolve, reject) => {
+        Papa.parse(arquivo, {
+          header: true,
+          delimiter: sep,
+          encoding,
+          skipEmptyLines: true,
+          chunk: (results, parser) => {
+            try {
+              transformarLinhas(results.data, arquivo.name);
+              const fracaoGeral = (bytesAntesDesteArquivo + results.meta.cursor) / tamanhoTotal;
+              atualizarProgressoAnon(Math.min(fracaoGeral, 1), linhasMantidas, linhasLidas, inicio);
+            } catch (e) {
+              parser.abort();
+              reject(e);
+            }
+          },
+          complete: resolve,
+          error: reject,
+        });
+      });
+      bytesAnteriores += arquivo.size;
+    }
   }
 
-  return new Promise((resolve, reject) => {
-    Papa.parse(file, {
-      header: true,
-      delimiter: sep,
-      encoding,
-      skipEmptyLines: true,
-      chunk: (results, parser) => {
-        try {
-          transformarLinhas(results.data);
-          const fracao = Math.min(results.meta.cursor / file.size, 1);
-          atualizarProgressoAnon(fracao, linhasMantidas, linhasLidas, inicio);
-        } catch (e) {
-          parser.abort();
-          reject(e);
-        }
-      },
-      complete: async () => {
-        if (linhasMantidas === 0) {
-          reject(new Error("Nenhuma linha correspondeu ao filtro selecionado."));
-          return;
-        }
-        try {
-          await Promise.all(promessasEscrita);
-          resolve(finalizarAnonimizacao(mapeador, linhasMantidas, linhasLidas));
-        } catch (e) {
-          reject(e);
-        }
-      },
-      error: reject,
-    });
-  });
+  if (linhasMantidas === 0) {
+    throw new Error("Nenhuma linha correspondeu ao filtro selecionado.");
+  }
+  await Promise.all(promessasEscrita);
+  return finalizarAnonimizacao(mapeador, linhasMantidas, linhasLidas);
 }
 
 function finalizarAnonimizacao(mapeador, linhasMantidas, linhasLidas) {

@@ -26,6 +26,14 @@ Para arquivos grandes (**recomendado: acima de 150MB**), use **Google Chrome ou 
 
 Em outros navegadores (Firefox, Safari), a ferramenta ainda funciona, mas guarda o resultado na memória até o fim — para arquivos muito grandes, isso pode travar a aba. O próprio app avisa isso na tela quando detecta essa situação, e pede confirmação antes de seguir.
 
+## Empilhar múltiplos arquivos (anonimização)
+
+Na aba "Anonimizar", pode selecionar ou arrastar **mais de um arquivo de uma vez**. Eles são empilhados em um único resultado, com uma coluna extra (`Arquivo_Origem`) indicando de qual arquivo cada linha veio — e um único mapeamento (de-para) cobre tudo.
+
+**Requisito**: todos os arquivos precisam ter exatamente as mesmas colunas do primeiro. Se algum for diferente, a ferramenta avisa qual e não deixa seguir até você remover ou ajustar.
+
+**Tamanho recomendado**: até 2GB no total, usando Chrome ou Edge atualizados.
+
 ## O que foi testado (com arquivo real de ~600MB, 4,2 milhões de linhas)
 
 - Detecção de colunas (incluindo casos como "Nome SKU", SKU numérico vs. textual, NIVEL1/NIVEL2, filtro por Data excluindo Periodo)
