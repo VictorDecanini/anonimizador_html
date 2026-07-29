@@ -501,49 +501,56 @@ hr.divisor {
   to { transform: rotate(360deg); }
 }
 
-/* Indicador de passos (orientação rápida, sem parágrafo) */
-.passos {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-  font-size: 0.85rem;
-  color: var(--navy);
+/* Opções avançadas: recolhidas por padrão, discretas, controles menores */
+.opcoes-avancadas {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.opcoes-avancadas summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--gray-text);
   font-weight: 600;
+  list-style: none;
+  user-select: none;
 }
 
-.passo {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: white;
-  border-radius: 999px;
-  padding: 6px 14px 6px 8px;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+.opcoes-avancadas summary::-webkit-details-marker {
+  display: none;
 }
 
-.passo-num {
-  background: var(--navy);
-  color: white;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+.opcoes-avancadas summary:hover {
+  color: var(--navy);
+}
+
+.opcoes-avancadas[open] summary {
+  color: var(--navy);
+  margin-bottom: 10px;
+}
+
+.config-linha-discreta {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.config-item-discreto {
+  max-width: 160px;
+}
+
+.config-item-discreto label {
+  display: block;
   font-size: 0.75rem;
+  color: var(--gray-text);
+  margin-bottom: 3px;
 }
 
-.passo-seta {
-  color: var(--border);
-  font-weight: 400;
-}
-
-@media (max-width: 720px) {
-  .passos { flex-direction: column; align-items: stretch; }
-  .passo-seta { display: none; }
+.config-item-discreto select {
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  border-radius: 6px;
 }
 
 /* Instrução curta e direta, destacada mas discreta */

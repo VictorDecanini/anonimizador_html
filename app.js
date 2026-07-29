@@ -48,6 +48,73 @@ async function detectarEncoding(file) {
   return ok ? "utf-8" : "windows-1252";
 }
 
+// ---------------------------------------------------------------------------
+// Diagnóstico amigável: em vez de mostrar um erro técnico quando a leitura
+// dá errado, tenta identificar se o problema é separador ou codificação, e
+// recomenda a mudança específica.
+// ---------------------------------------------------------------------------
+async function lerAmostraTextoBruto(file, encoding, tamanhoBytes = 65536) {
+  const blob = file.slice(0, tamanhoBytes);
+  const buffer = await blob.arrayBuffer();
+  const label = (encoding || "utf-8").toLowerCase();
+  try {
+    return new TextDecoder(label === "auto" ? "utf-8" : label).decode(buffer);
+  } catch {
+    return new TextDecoder("utf-8").decode(buffer);
+  }
+}
+
+function contarDelimitadores(linha) {
+  return {
+    ";": (linha.match(/;/g) || []).length,
+    ",": (linha.match(/,/g) || []).length,
+    "\t": (linha.match(/\t/g) || []).length,
+    "|": (linha.match(/\|/g) || []).length,
+  };
+}
+
+function diagnosticarLeitura(textoAmostra, colunas, sepAtual) {
+  // 1) Poucas colunas detectadas costuma ser separador errado -- confere
+  // se outro separador comum aparece muito mais vezes na primeira linha.
+  if (colunas.length <= 1) {
+    const primeiraLinha = (textoAmostra.split(/\r?\n/)[0] || "");
+    const contagens = contarDelimitadores(primeiraLinha);
+    delete contagens[sepAtual];
+    const [melhorSep, melhorContagem] = Object.entries(contagens).sort((a, b) => b[1] - a[1])[0];
+    if (melhorContagem > 0) {
+      const nomeSep = melhorSep === "\t" ? "Tab" : `"${melhorSep}"`;
+      return {
+        tipo: "separador",
+        mensagem: `O separador selecionado não parece bater com o arquivo -- ele parece usar ${nomeSep}. Troque em "Opções avançadas" e tente de novo.`,
+      };
+    }
+  }
+
+  // 2) Caracteres de acentuação corrompidos indicam codificação errada.
+  const temSubstituicao = textoAmostra.includes("\uFFFD");
+  const temMojibake = /[ÃÂ][\u0080-\u00BF]/.test(textoAmostra);
+  if (temSubstituicao || temMojibake) {
+    return {
+      tipo: "codificacao",
+      mensagem: `A codificação selecionada não parece bater com o arquivo -- apareceram caracteres estranhos no lugar de acentos. Tente "Windows-1252 / CP1252" em "Opções avançadas" e tente de novo.`,
+    };
+  }
+
+  return null;
+}
+
+function mostrarErroLeitura(elementoId, mensagem) {
+  const el = document.getElementById(elementoId);
+  el.innerHTML = `⚠️ ${mensagem}`;
+  el.classList.remove("oculto");
+}
+
+function erroAmigavel(mensagem) {
+  const e = new Error(mensagem);
+  e.amigavel = true;
+  return e;
+}
+
 function baixarTexto(texto, nomeArquivo, tipoMime) {
   const bom = "\uFEFF"; // BOM para o Excel abrir acentos corretamente
   const blob = new Blob([bom + texto], { type: tipoMime });
@@ -373,6 +440,17 @@ async function analisarArquivosAnon() {
       const r = await lerAmostraCsv(primeiro, sep, encoding);
       colunas = r.colunas;
       linhasAmostra = r.linhas;
+
+      // Antes de seguir, confere se o resultado tem cara de separador ou
+      // codificação errados -- e, se tiver, avisa exatamente o que trocar
+      // em vez de deixar o erro estourar mais na frente.
+      const textoBruto = await lerAmostraTextoBruto(primeiro, encoding);
+      const diagnostico = diagnosticarLeitura(textoBruto, colunas, sep);
+      if (diagnostico) {
+        spinner.classList.add("oculto");
+        mostrarErroLeitura("erro-analise-anon", diagnostico.mensagem);
+        return;
+      }
     }
 
     // Se houver mais de um arquivo, todos precisam ter exatamente as
@@ -385,7 +463,7 @@ async function analisarArquivosAnon() {
         if (!igual) divergentes.push(arquivos[i].name);
       }
       if (divergentes.length > 0) {
-        throw new Error(
+        throw erroAmigavel(
           `Estes arquivos têm colunas diferentes do primeiro (${primeiro.name}) e não podem ser empilhados: ${divergentes.join(", ")}. Remova-os ou ajuste as colunas antes de continuar.`
         );
       }
@@ -411,8 +489,10 @@ async function analisarArquivosAnon() {
     renderizarConfigAnon();
   } catch (err) {
     console.error(err);
-    document.getElementById("erro-analise-anon").textContent = "Erro ao analisar os arquivos: " + err.message;
-    document.getElementById("erro-analise-anon").classList.remove("oculto");
+    const mensagem = err.amigavel
+      ? err.message
+      : `Não conseguimos ler esse arquivo. Verifique se o separador e a codificação em "Opções avançadas" correspondem ao arquivo, ou tente novamente.`;
+    mostrarErroLeitura("erro-analise-anon", mensagem);
   } finally {
     spinner.classList.add("oculto");
   }
@@ -909,6 +989,7 @@ async function iniciarDesanonimizacao() {
   document.getElementById("resultado-desanon").classList.add("oculto");
   document.getElementById("rotulo-metrica-desanon").textContent = "Linhas processadas";
   document.getElementById("detalhes-desanon").innerHTML = "";
+  document.getElementById("erro-analise-desanon").classList.add("oculto");
   const progressoWrap = document.getElementById("progresso-desanon");
   progressoWrap.classList.remove("oculto");
   if (escritor.modo === "blob") {
@@ -931,6 +1012,10 @@ async function iniciarDesanonimizacao() {
     } else {
       const r = await lerAmostraCsv(file, sep, encoding, 1000);
       colunasArquivo = r.colunas;
+
+      const textoBruto = await lerAmostraTextoBruto(file, encoding);
+      const diagnostico = diagnosticarLeitura(textoBruto, colunasArquivo, sep);
+      if (diagnostico) throw erroAmigavel(diagnostico.mensagem);
     }
 
     const candidatos = Core.identificarColunas(colunasArquivo);
@@ -941,7 +1026,7 @@ async function iniciarDesanonimizacao() {
     }
 
     if (Object.keys(colunasParaRestaurar).length === 0) {
-      throw new Error("Nenhuma coluna do arquivo bate com o mapeamento enviado.");
+      throw erroAmigavel("Nenhuma coluna do arquivo bate com o mapeamento enviado.");
     }
 
     const inicio = performance.now();
@@ -997,7 +1082,10 @@ async function iniciarDesanonimizacao() {
   } catch (err) {
     console.error(err);
     await escritor.cancelar();
-    alert("Erro durante a desanonimização: " + err.message);
+    const mensagem = err.amigavel
+      ? err.message
+      : `Não conseguimos processar esse arquivo. Verifique se o separador e a codificação em "Opções avançadas" correspondem ao arquivo, ou tente novamente.`;
+    mostrarErroLeitura("erro-analise-desanon", mensagem);
   } finally {
     btn.disabled = false;
     progressoWrap.classList.add("oculto");

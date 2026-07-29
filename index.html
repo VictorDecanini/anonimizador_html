@@ -22,39 +22,8 @@
   <!-- ============================== ABA ANONIMIZAR ============================== -->
   <div id="aba-anonimizar" class="aba-conteudo visivel">
 
-    <div class="passos">
-      <div class="passo"><span class="passo-num">1</span> Suba os arquivos</div>
-      <div class="passo-seta">→</div>
-      <div class="passo"><span class="passo-num">2</span> Confira colunas e filtros</div>
-      <div class="passo-seta">→</div>
-      <div class="passo"><span class="passo-num">3</span> Anonimize e salve</div>
-    </div>
-
     <div class="cartao">
-      <div class="config-linha">
-        <div class="config-item">
-          <label>Separador do CSV (ignorado para Excel)</label>
-          <select id="separador-anon">
-            <option value=";">;</option>
-            <option value=",">,</option>
-            <option value="\t">Tab</option>
-            <option value="|">|</option>
-          </select>
-        </div>
-        <div class="config-item">
-          <label>Codificação do CSV (ignorado para Excel)</label>
-          <select id="encoding-anon">
-            <option value="auto">Automático</option>
-            <option value="utf-8">UTF-8</option>
-            <option value="windows-1252">Windows-1252 / CP1252</option>
-            <option value="iso-8859-1">ISO-8859-1 / Latin1</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <div class="cartao">
-      <p class="instrucao">📌 Pode subir <strong>mais de um arquivo</strong> — todos precisam ter as mesmas colunas. Eles são empilhados em um só, com uma coluna extra indicando de qual arquivo veio cada linha. Recomendado: até 2GB no total, usando Chrome ou Edge.</p>
+      <p class="instrucao">📌 Suba um ou mais arquivos com as mesmas colunas — eles são empilhados em um só, com uma coluna extra indicando a origem de cada linha. Recomendado: até 2GB no total, em Chrome ou Edge.</p>
       <div id="upload-anon-area" class="upload-area">
         <div class="icone">📁</div>
         <div class="titulo">Clique ou arraste um ou mais arquivos aqui</div>
@@ -67,6 +36,31 @@
       <div id="aviso-sem-colunas-anon" class="aviso oculto">Nenhuma coluna-alvo (fornecedor, ean, marca, sku, canal, uf, nivel1, nivel2) foi encontrada neste arquivo.</div>
       <div id="aviso-tamanho-arquivo-anon" class="aviso oculto"></div>
       <div id="aviso-modo-blob-anon" class="aviso oculto">Seu navegador não suporta salvar direto em disco durante o processamento — vai funcionar, mas pode ficar mais lento e usar mais memória em arquivos muito grandes. Chrome ou Edge atualizados evitam isso.</div>
+
+      <details class="opcoes-avancadas">
+        <summary>⚙️ Opções avançadas (separador e codificação)</summary>
+        <div class="config-linha-discreta">
+          <div class="config-item-discreto">
+            <label>Separador</label>
+            <select id="separador-anon">
+              <option value=";">;</option>
+              <option value=",">,</option>
+              <option value="\t">Tab</option>
+              <option value="|">|</option>
+            </select>
+          </div>
+          <div class="config-item-discreto">
+            <label>Codificação</label>
+            <select id="encoding-anon">
+              <option value="auto">Automático</option>
+              <option value="utf-8">UTF-8</option>
+              <option value="windows-1252">Windows-1252 / CP1252</option>
+              <option value="iso-8859-1">ISO-8859-1 / Latin1</option>
+            </select>
+          </div>
+        </div>
+        <p class="legenda">Normalmente não precisa mexer aqui — a detecção automática cuida disso. Se der algum problema de leitura, avisamos exatamente o que ajustar.</p>
+      </details>
     </div>
 
     <div id="bloco-config-anon" class="oculto">
@@ -115,37 +109,6 @@
   <!-- ============================== ABA DESANONIMIZAR ============================== -->
   <div id="aba-desanonimizar" class="aba-conteudo">
 
-    <div class="passos">
-      <div class="passo"><span class="passo-num">1</span> Suba o mapeamento</div>
-      <div class="passo-seta">→</div>
-      <div class="passo"><span class="passo-num">2</span> Suba o arquivo anonimizado</div>
-      <div class="passo-seta">→</div>
-      <div class="passo"><span class="passo-num">3</span> Desanonimize e salve</div>
-    </div>
-
-    <div class="cartao">
-      <div class="config-linha">
-        <div class="config-item">
-          <label>Separador do CSV (ignorado para Excel/Word/PPT)</label>
-          <select id="separador-desanon">
-            <option value=";">;</option>
-            <option value=",">,</option>
-            <option value="\t">Tab</option>
-            <option value="|">|</option>
-          </select>
-        </div>
-        <div class="config-item">
-          <label>Codificação do CSV (ignorado para Excel/Word/PPT)</label>
-          <select id="encoding-desanon">
-            <option value="auto">Automático</option>
-            <option value="utf-8">UTF-8</option>
-            <option value="windows-1252">Windows-1252 / CP1252</option>
-            <option value="iso-8859-1">ISO-8859-1 / Latin1</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
     <div class="cartao">
       <p class="instrucao">📌 Precisa dos <strong>dois arquivos</strong>: o mapeamento (baixado na hora da anonimização) e o arquivo que você quer restaurar.</p>
       <h3>1. Mapeamento (referência)</h3>
@@ -167,11 +130,37 @@
       <div id="upload-desanon-info" class="arquivo-info oculto"></div>
       <input type="file" id="upload-desanon-input" accept=".csv,.txt,.xlsx,.xls,.docx,.pptx" class="oculto">
 
+      <details class="opcoes-avancadas">
+        <summary>⚙️ Opções avançadas (separador e codificação)</summary>
+        <div class="config-linha-discreta">
+          <div class="config-item-discreto">
+            <label>Separador</label>
+            <select id="separador-desanon">
+              <option value=";">;</option>
+              <option value=",">,</option>
+              <option value="\t">Tab</option>
+              <option value="|">|</option>
+            </select>
+          </div>
+          <div class="config-item-discreto">
+            <label>Codificação</label>
+            <select id="encoding-desanon">
+              <option value="auto">Automático</option>
+              <option value="utf-8">UTF-8</option>
+              <option value="windows-1252">Windows-1252 / CP1252</option>
+              <option value="iso-8859-1">ISO-8859-1 / Latin1</option>
+            </select>
+          </div>
+        </div>
+        <p class="legenda">Ignorado para Excel, Word e PowerPoint. Normalmente não precisa mexer aqui.</p>
+      </details>
+
       <hr class="divisor">
       <h3>3. Desanonimizar</h3>
       <button id="btn-iniciar-desanon" class="botao-primario" disabled>▶️ Iniciar desanonimização</button>
       <p class="legenda" id="legenda-salvamento-desanon">Ao clicar, o navegador vai pedir onde salvar o arquivo desanonimizado.</p>
       <div id="aviso-modo-blob-desanon" class="aviso oculto">Seu navegador não suporta salvar direto em disco durante o processamento — vai funcionar, mas pode ficar mais lento em arquivos muito grandes.</div>
+      <div id="erro-analise-desanon" class="aviso oculto"></div>
 
       <div id="progresso-desanon" class="progresso-wrap oculto">
         <div class="barra-progresso"><div class="preenchido"></div></div>
