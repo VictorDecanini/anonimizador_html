@@ -3,42 +3,56 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anonimizador de Dados — Scanntech</title>
+<title>Anonimizador de Dados — ScannMarket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="lib/tabler-icons.min.css">
 </head>
 <body>
 
-<div class="container">
-  <header class="topo">
-    <h1>🔒 Anonimizador de Dados</h1>
-    <p>Fornecedor · EAN · Marca · SKU · Canal · UF · Nível 1 · Nível 2 — códigos sempre numéricos. Tudo roda no seu navegador, nada é enviado a servidor.</p>
-  </header>
+<!-- TOPO: barra azul com marca + título da ferramenta (layout padrão Scanntech) -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark">Scann<span class="brand-mark-accent">Market</span></span>
+    </div>
+    <h1 class="app-title">Anonimizador de Dados</h1>
+  </div>
+</header>
 
-  <div class="abas">
-    <button class="aba-botao ativa" data-aba="aba-anonimizar">🔒 Anonimizar</button>
-    <button class="aba-botao" data-aba="aba-desanonimizar">🔓 Desanonimizar</button>
+<main class="app-main">
+
+  <p class="app-subtitle">Fornecedor · EAN · Marca · SKU · Canal · UF · Nível 1 · Nível 2 — códigos sempre numéricos. Tudo roda no seu navegador, nada é enviado a servidor.</p>
+
+  <div class="mode-switch">
+    <button class="mode-btn is-active" data-modo="modo-anonimizar"><i class="ti ti-lock"></i> Anonimizar</button>
+    <button class="mode-btn" data-modo="modo-desanonimizar"><i class="ti ti-lock-open"></i> Desanonimizar</button>
   </div>
 
-  <!-- ============================== ABA ANONIMIZAR ============================== -->
-  <div id="aba-anonimizar" class="aba-conteudo visivel">
+  <!-- ============================== ANONIMIZAR ============================== -->
+  <section id="modo-anonimizar" class="mode-panel is-visible">
 
-    <div class="cartao">
-      <p class="instrucao">📌 Suba um ou mais arquivos com as mesmas colunas — eles são empilhados em um só, com uma coluna extra indicando a origem de cada linha. Recomendado: até 2GB no total, em Chrome ou Edge.</p>
-      <div id="upload-anon-area" class="upload-area">
-        <div class="icone">📁</div>
-        <div class="titulo">Clique ou arraste um ou mais arquivos aqui</div>
-        <div class="subtitulo">CSV, TXT ou Excel (.xlsx/.xls) — pode selecionar vários de uma vez</div>
-        <input type="file" id="upload-anon-input" accept=".csv,.txt,.xlsx,.xls" multiple class="oculto">
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head">
+        <h2>1. Suba os arquivos</h2>
+        <p class="panel-sub">Pode subir um ou mais arquivos com as mesmas colunas — eles são empilhados em um só, com uma coluna extra indicando a origem de cada linha. Recomendado: até 2GB no total, em Chrome ou Edge.</p>
+      </div>
+
+      <div id="upload-anon-area" class="dropzone">
+        <i class="ti ti-upload"></i>
+        <span><strong>Clique ou arraste um ou mais arquivos aqui</strong><br>CSV, TXT ou Excel (.xlsx/.xls) — pode selecionar vários de uma vez</span>
+        <input type="file" id="upload-anon-input" accept=".csv,.txt,.xlsx,.xls" multiple hidden>
       </div>
       <div id="lista-arquivos-anon" class="lista-arquivos oculto"></div>
       <div id="spinner-analise-anon" class="oculto" style="margin-top:12px;"></div>
-      <div id="erro-analise-anon" class="aviso oculto"></div>
-      <div id="aviso-sem-colunas-anon" class="aviso oculto">Nenhuma coluna-alvo (fornecedor, ean, marca, sku, canal, uf, nivel1, nivel2) foi encontrada neste arquivo.</div>
-      <div id="aviso-tamanho-arquivo-anon" class="aviso oculto"></div>
-      <div id="aviso-modo-blob-anon" class="aviso oculto">Seu navegador não suporta salvar direto em disco durante o processamento — vai funcionar, mas pode ficar mais lento e usar mais memória em arquivos muito grandes. Chrome ou Edge atualizados evitam isso.</div>
+      <div id="erro-analise-anon" class="callout callout-danger oculto"></div>
+      <div id="aviso-sem-colunas-anon" class="callout callout-warning oculto"><i class="ti ti-alert-triangle"></i> Nenhuma coluna-alvo (fornecedor, ean, marca, sku, canal, uf, nivel1, nivel2) foi encontrada neste arquivo.</div>
+      <div id="aviso-tamanho-arquivo-anon" class="callout callout-warning oculto"></div>
+      <div id="aviso-modo-blob-anon" class="callout callout-warning oculto"><i class="ti ti-alert-triangle"></i> Seu navegador não suporta salvar direto em disco durante o processamento — vai funcionar, mas pode ficar mais lento e usar mais memória em arquivos muito grandes. Chrome ou Edge atualizados evitam isso.</div>
 
       <details class="opcoes-avancadas">
-        <summary>⚙️ Opções avançadas (separador e codificação)</summary>
+        <summary><i class="ti ti-settings"></i> Opções avançadas (separador e codificação)</summary>
         <div class="config-linha-discreta">
           <div class="config-item-discreto">
             <label>Separador</label>
@@ -59,31 +73,36 @@
             </select>
           </div>
         </div>
-        <p class="legenda">Normalmente não precisa mexer aqui — a detecção automática cuida disso. Se der algum problema de leitura, avisamos exatamente o que ajustar.</p>
+        <p class="field-hint">Normalmente não precisa mexer aqui — a detecção automática cuida disso. Se der algum problema de leitura, avisamos exatamente o que ajustar.</p>
       </details>
     </div>
 
     <div id="bloco-config-anon" class="oculto">
-      <div class="cartao">
-        <h3>1. Colunas que vão para o arquivo final</h3>
-        <p class="legenda">As colunas categóricas (🔒) são sempre anonimizadas quando incluídas. Desmarque só o que você não quer no resultado.</p>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-head">
+          <h2>2. Colunas que vão para o arquivo final</h2>
+          <p class="panel-sub">As colunas categóricas (<i class="ti ti-lock"></i>) são sempre anonimizadas quando incluídas. Desmarque só o que você não quer no resultado.</p>
+        </div>
         <div class="checkbox-mestre">
           <input type="checkbox" id="chk-selecionar-todas-anon">
           <label for="chk-selecionar-todas-anon">Selecionar todas</label>
         </div>
-        <div id="grade-colunas-anon" class="grade"></div>
+        <div id="grade-colunas-anon" class="checkbox-grid"></div>
 
         <div id="bloco-filtros-anon" class="oculto">
           <hr class="divisor">
-          <h3>2. Filtrar valores (opcional — vazio mantém tudo)</h3>
-          <p class="legenda">Direcione a análise a um recorte específico, ex: só um fabricante ou uma marca.</p>
-          <div id="grade-filtros-anon" class="grade"></div>
+          <h3>Filtrar valores (opcional — vazio mantém tudo)</h3>
+          <p class="field-hint">Direcione a análise a um recorte específico, ex: só um fabricante ou uma marca.</p>
+          <div id="grade-filtros-anon" class="checkbox-grid"></div>
         </div>
+      </div>
 
-        <hr class="divisor">
-        <h3>3. Anonimizar</h3>
-        <p class="legenda">Ao clicar, o navegador vai pedir onde salvar o arquivo anonimizado (como um "Salvar como").</p>
-        <button id="btn-iniciar-anon" class="botao-primario">▶️ Iniciar anonimização</button>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>3. Anonimizar</h2>
+          <p class="panel-sub">Ao clicar, o navegador vai pedir onde salvar o arquivo anonimizado (como um "Salvar como").</p>
+        </div>
+        <button id="btn-iniciar-anon" class="btn btn-primary">Iniciar anonimização <i class="ti ti-arrow-right"></i></button>
 
         <div id="progresso-anon" class="progresso-wrap oculto">
           <div class="barra-progresso"><div class="preenchido"></div></div>
@@ -92,46 +111,47 @@
       </div>
     </div>
 
-    <div id="resultado-anon" class="cartao oculto">
-      <div class="sucesso">✅ Anonimização concluída — arquivo salvo</div>
-      <div class="metricas">
-        <div class="metrica"><div class="valor" id="metrica-linhas-anon">0</div><div class="rotulo">Linhas no arquivo final</div></div>
-        <div class="metrica"><div class="valor" id="metrica-mapeados-anon">0</div><div class="rotulo">Valores únicos mapeados</div></div>
+    <div id="resultado-anon" class="panel oculto" style="margin-top:16px">
+      <div class="callout" style="background:var(--green-bg); border-left-color:var(--green); color:var(--green); margin-bottom:16px;"><i class="ti ti-circle-check"></i> Anonimização concluída — arquivo salvo</div>
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-value" id="metrica-linhas-anon">0</div><div class="kpi-label">Linhas no arquivo final</div></div>
+        <div class="kpi-card"><div class="kpi-value" id="metrica-mapeados-anon">0</div><div class="kpi-label">Valores únicos mapeados</div></div>
       </div>
-      <div class="linha-botoes">
-        <button id="btn-download-mapa-anon" class="botao-primario">📥 Baixar mapeamento (referência)</button>
+      <div class="panel-actions" style="justify-content:flex-start; border-top:none; padding-top:0; margin-top:8px;">
+        <button id="btn-download-mapa-anon" class="btn btn-secondary"><i class="ti ti-download"></i> Baixar mapeamento (referência)</button>
       </div>
-      <p class="legenda" style="margin-top:12px;">Guarde o arquivo de referência — é ele que permite desanonimizar depois.</p>
+      <p class="field-hint" style="margin-top:12px;">Guarde o arquivo de referência — é ele que permite desanonimizar depois.</p>
     </div>
 
-  </div>
+  </section>
 
-  <!-- ============================== ABA DESANONIMIZAR ============================== -->
-  <div id="aba-desanonimizar" class="aba-conteudo">
+  <!-- ============================== DESANONIMIZAR ============================== -->
+  <section id="modo-desanonimizar" class="mode-panel">
 
-    <div class="cartao">
-      <p class="instrucao">📌 Precisa dos <strong>dois arquivos</strong>: o mapeamento (baixado na hora da anonimização) e o arquivo que você quer restaurar.</p>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Desanonimizar</h2>
+        <p class="panel-sub">Precisa dos dois arquivos: o mapeamento (baixado na hora da anonimização) e o arquivo que você quer restaurar.</p>
+      </div>
+
       <h3>1. Mapeamento (referência)</h3>
-      <div id="upload-mapa-area" class="upload-area">
-        <div class="icone">📄</div>
-        <div class="titulo">Clique ou arraste o CSV de referência aqui</div>
+      <div id="upload-mapa-area" class="dropzone" style="margin-bottom:20px">
+        <i class="ti ti-upload"></i>
+        <span><strong>Clique ou arraste o CSV de referência aqui</strong></span>
       </div>
       <div id="upload-mapa-info" class="arquivo-info oculto"></div>
-      <input type="file" id="upload-mapa-input" accept=".csv" class="oculto">
-
-      <hr class="divisor">
+      <input type="file" id="upload-mapa-input" accept=".csv" hidden>
 
       <h3>2. Arquivo a desanonimizar</h3>
-      <div id="upload-desanon-area" class="upload-area">
-        <div class="icone">📁</div>
-        <div class="titulo">Clique ou arraste o arquivo anonimizado aqui</div>
-        <div class="subtitulo">CSV, TXT, Excel (.xlsx/.xls), Word (.docx) ou PowerPoint (.pptx) — PDF ainda não é suportado</div>
+      <div id="upload-desanon-area" class="dropzone">
+        <i class="ti ti-upload"></i>
+        <span><strong>Clique ou arraste o arquivo anonimizado aqui</strong><br>CSV, TXT, Excel (.xlsx/.xls), Word (.docx) ou PowerPoint (.pptx) — PDF ainda não é suportado</span>
       </div>
       <div id="upload-desanon-info" class="arquivo-info oculto"></div>
-      <input type="file" id="upload-desanon-input" accept=".csv,.txt,.xlsx,.xls,.docx,.pptx" class="oculto">
+      <input type="file" id="upload-desanon-input" accept=".csv,.txt,.xlsx,.xls,.docx,.pptx" hidden>
 
       <details class="opcoes-avancadas">
-        <summary>⚙️ Opções avançadas (separador e codificação)</summary>
+        <summary><i class="ti ti-settings"></i> Opções avançadas (separador e codificação)</summary>
         <div class="config-linha-discreta">
           <div class="config-item-discreto">
             <label>Separador</label>
@@ -152,15 +172,15 @@
             </select>
           </div>
         </div>
-        <p class="legenda">Ignorado para Excel, Word e PowerPoint. Normalmente não precisa mexer aqui.</p>
+        <p class="field-hint">Ignorado para Excel, Word e PowerPoint. Normalmente não precisa mexer aqui.</p>
       </details>
 
-      <hr class="divisor">
-      <h3>3. Desanonimizar</h3>
-      <button id="btn-iniciar-desanon" class="botao-primario" disabled>▶️ Iniciar desanonimização</button>
-      <p class="legenda" id="legenda-salvamento-desanon">Ao clicar, o navegador vai pedir onde salvar o arquivo desanonimizado.</p>
-      <div id="aviso-modo-blob-desanon" class="aviso oculto">Seu navegador não suporta salvar direto em disco durante o processamento — vai funcionar, mas pode ficar mais lento em arquivos muito grandes.</div>
-      <div id="erro-analise-desanon" class="aviso oculto"></div>
+      <div class="panel-actions" style="justify-content:flex-start;">
+        <button id="btn-iniciar-desanon" class="btn btn-primary" disabled>Iniciar desanonimização <i class="ti ti-arrow-right"></i></button>
+      </div>
+      <p class="field-hint" id="legenda-salvamento-desanon">Ao clicar, o navegador vai pedir onde salvar o arquivo desanonimizado.</p>
+      <div id="aviso-modo-blob-desanon" class="callout callout-warning oculto"><i class="ti ti-alert-triangle"></i> Seu navegador não suporta salvar direto em disco durante o processamento — vai funcionar, mas pode ficar mais lento em arquivos muito grandes.</div>
+      <div id="erro-analise-desanon" class="callout callout-danger oculto"></div>
 
       <div id="progresso-desanon" class="progresso-wrap oculto">
         <div class="barra-progresso"><div class="preenchido"></div></div>
@@ -168,18 +188,21 @@
       </div>
     </div>
 
-    <div id="resultado-desanon" class="cartao oculto">
-      <div class="sucesso">✅ Desanonimização concluída — arquivo salvo</div>
-      <div class="metricas">
-        <div class="metrica"><div class="valor" id="metrica-linhas-desanon">0</div><div class="rotulo" id="rotulo-metrica-desanon">Linhas processadas</div></div>
+    <div id="resultado-desanon" class="panel oculto" style="margin-top:16px">
+      <div class="callout" style="background:var(--green-bg); border-left-color:var(--green); color:var(--green); margin-bottom:16px;"><i class="ti ti-circle-check"></i> Desanonimização concluída — arquivo salvo</div>
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-value" id="metrica-linhas-desanon">0</div><div class="kpi-label" id="rotulo-metrica-desanon">Linhas processadas</div></div>
       </div>
       <div id="detalhes-desanon"></div>
     </div>
 
-  </div>
+  </section>
 
-  <p class="rodape">Processamento 100% local no navegador — nenhum dado sai do seu computador.</p>
-</div>
+</main>
+
+<footer class="app-footer">
+  Processamento 100% local no navegador · Nenhum dado é enviado a servidores externos
+</footer>
 
 <script src="lib/papaparse.min.js"></script>
 <script src="lib/xlsx.full.min.js"></script>

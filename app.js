@@ -105,7 +105,7 @@ function diagnosticarLeitura(textoAmostra, colunas, sepAtual) {
 
 function mostrarErroLeitura(elementoId, mensagem) {
   const el = document.getElementById(elementoId);
-  el.innerHTML = `⚠️ ${mensagem}`;
+  el.innerHTML = `<i class="ti ti-alert-triangle"></i> ${mensagem}`;
   el.classList.remove("oculto");
 }
 
@@ -292,13 +292,13 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function configurarAbas() {
-  const botoes = document.querySelectorAll(".aba-botao");
+  const botoes = document.querySelectorAll(".mode-btn");
   botoes.forEach((btn) => {
     btn.addEventListener("click", () => {
-      botoes.forEach((b) => b.classList.remove("ativa"));
-      btn.classList.add("ativa");
-      document.querySelectorAll(".aba-conteudo").forEach((c) => c.classList.remove("visivel"));
-      document.getElementById(btn.dataset.aba).classList.add("visivel");
+      botoes.forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      document.querySelectorAll(".mode-panel").forEach((c) => c.classList.remove("is-visible"));
+      document.getElementById(btn.dataset.modo).classList.add("is-visible");
     });
   });
 }
@@ -374,7 +374,7 @@ function renderizarListaArquivosAnon() {
     const item = document.createElement("div");
     item.className = "item-arquivo";
     item.innerHTML =
-      `<span class="nome">📄 ${arquivo.name} — ${(arquivo.size / 1_048_576).toFixed(1)} MB</span>` +
+      `<span class="nome"><i class="ti ti-file-text"></i> ${arquivo.name} — ${(arquivo.size / 1_048_576).toFixed(1)} MB</span>` +
       `<button class="remover" title="Remover">✕</button>`;
     item.querySelector(".remover").addEventListener("click", () => removerArquivoAnon(i));
     lista.appendChild(item);
@@ -389,13 +389,13 @@ function renderizarListaArquivosAnon() {
   const avisoTamanho = document.getElementById("aviso-tamanho-arquivo-anon");
   if (!window.showSaveFilePicker && tamanhoTotal > LIMITE_SEGURO_SEM_STREAMING) {
     avisoTamanho.innerHTML =
-      `⚠️ O total selecionado passa de 150MB e seu navegador não suporta o modo de gravação direta em disco ` +
+      `<i class="ti ti-alert-triangle"></i> O total selecionado passa de 150MB e seu navegador não suporta o modo de gravação direta em disco ` +
       `(mais seguro para arquivos grandes). Há um risco real de a aba travar por falta de memória. ` +
       `<strong>Recomendamos fortemente usar Google Chrome ou Microsoft Edge atualizados.</strong>`;
     avisoTamanho.classList.remove("oculto");
   } else if (tamanhoTotal > LIMITE_RECOMENDADO_TOTAL) {
     avisoTamanho.innerHTML =
-      `⚠️ O total selecionado passa de 2GB. Deve funcionar em Chrome/Edge, mas o processamento pode demorar vários minutos.`;
+      `<i class="ti ti-alert-triangle"></i> O total selecionado passa de 2GB. Deve funcionar em Chrome/Edge, mas o processamento pode demorar vários minutos.`;
     avisoTamanho.classList.remove("oculto");
   } else {
     avisoTamanho.classList.add("oculto");
@@ -851,7 +851,7 @@ function configurarUploadDesanon() {
     if (e.target.files.length > 0) {
       estado.desanon.arquivo = e.target.files[0];
       document.getElementById("upload-desanon-info").innerHTML =
-        `📄 <strong>${e.target.files[0].name}</strong> — ${(e.target.files[0].size / 1_048_576).toFixed(1)} MB`;
+        `<i class="ti ti-file-text"></i> <strong>${e.target.files[0].name}</strong> — ${(e.target.files[0].size / 1_048_576).toFixed(1)} MB`;
       document.getElementById("upload-desanon-info").classList.remove("oculto");
       verificarProntoDesanon();
     }
@@ -861,7 +861,7 @@ function configurarUploadDesanon() {
   inputMapa.addEventListener("change", (e) => {
     if (e.target.files.length > 0) {
       estado.desanon.arquivoMapa = e.target.files[0];
-      document.getElementById("upload-mapa-info").innerHTML = `📄 <strong>${e.target.files[0].name}</strong>`;
+      document.getElementById("upload-mapa-info").innerHTML = `<i class="ti ti-file-text"></i> <strong>${e.target.files[0].name}</strong>`;
       document.getElementById("upload-mapa-info").classList.remove("oculto");
       verificarProntoDesanon();
     }
@@ -939,22 +939,25 @@ async function iniciarDesanonimizacaoDocumento(file) {
     detalhes.innerHTML = "";
     if (resultado.relatorio.naoEncontrados.size > 0) {
       const aviso = document.createElement("div");
-      aviso.className = "aviso";
+      aviso.className = "callout callout-warning";
+      aviso.style.marginBottom = "10px";
       aviso.innerHTML =
-        `⚠️ ${resultado.relatorio.naoEncontrados.size} referência(s) citada(s) no texto não foram encontradas no mapeamento (ficaram como estavam): ` +
+        `<i class="ti ti-alert-triangle"></i> ${resultado.relatorio.naoEncontrados.size} referência(s) citada(s) no texto não foram encontradas no mapeamento (ficaram como estavam): ` +
         Array.from(resultado.relatorio.naoEncontrados).join(", ");
       detalhes.appendChild(aviso);
     }
     if (resultado.numImagens > 0) {
       const info = document.createElement("div");
-      info.className = "info";
-      info.textContent = `ℹ️ O documento tem ${resultado.numImagens} imagem(ns) embutida(s) (ex: gráficos salvos como figura). Texto dentro de imagens não é substituído automaticamente.`;
+      info.className = "callout callout-info";
+      info.style.marginBottom = "10px";
+      info.innerHTML = `<i class="ti ti-info-circle"></i> O documento tem ${resultado.numImagens} imagem(ns) embutida(s) (ex: gráficos salvos como figura). Texto dentro de imagens não é substituído automaticamente.`;
       detalhes.appendChild(info);
     }
     if (typeof resultado.numGraficos === "number" && resultado.numGraficos > 0) {
       const info = document.createElement("div");
-      info.className = "info";
-      info.textContent = `📊 ${resultado.numGraficos} gráfico(s) nativo(s) encontrado(s), ${resultado.graficosAtualizados} atualizado(s) automaticamente.`;
+      info.className = "callout callout-info";
+      info.style.marginBottom = "10px";
+      info.innerHTML = `<i class="ti ti-chart-bar"></i> ${resultado.numGraficos} gráfico(s) nativo(s) encontrado(s), ${resultado.graficosAtualizados} atualizado(s) automaticamente.`;
       detalhes.appendChild(info);
     }
   } catch (err) {

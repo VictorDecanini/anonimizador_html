@@ -28,7 +28,7 @@ Em outros navegadores (Firefox, Safari), a ferramenta ainda funciona, mas guarda
 
 ## Layout
 
-Segue o design system oficial da Scanntech (Brandbook v3.0): azul `#0052CC` como cor principal, laranja `#FF6B35` para ações secundárias, fonte Sora, espaçamento em base 8px, cantos retos (4px) em vez de arredondados. Só o `style.css` muda para aplicar isso — nenhuma classe HTML/JS foi renomeada, então é seguro reaproveitar essa mesma paleta de tokens (`:root` no topo do CSS) em outras ferramentas internas para manter tudo padronizado.
+Segue o "layout padrão Scanntech para HTML" (skill interna, mesma linha visual do "Validador de Prod & Classificações" / ScannMarket): barra azul `#054FE1` no topo com marca + título, fonte Sora, ícones Tabler Icons, cards com cantos de 12px, callouts com barra lateral colorida (azul/âmbar/vermelho). O `style.css` é o CSS oficial da skill + uma extensão própria só para os componentes que o anonimizador precisa e a skill não cobre (múltiplos arquivos, filtro multiselect, barra de progresso). Ícones e fontes (Tabler Icons em woff/woff2) ficam em `lib/`, hospedados localmente — só a fonte Sora carrega do Google Fonts (com fallback automático para Arial se bloqueado).
 
 ## Empilhar múltiplos arquivos (anonimização)
 
