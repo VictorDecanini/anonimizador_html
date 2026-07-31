@@ -26,6 +26,10 @@ Para arquivos grandes (**recomendado: acima de 150MB**), use **Google Chrome ou 
 
 Em outros navegadores (Firefox, Safari), a ferramenta ainda funciona, mas guarda o resultado na memória até o fim — para arquivos muito grandes, isso pode travar a aba. O próprio app avisa isso na tela quando detecta essa situação, e pede confirmação antes de seguir.
 
+## Layout
+
+Segue o design system oficial da Scanntech (Brandbook v3.0): azul `#0052CC` como cor principal, laranja `#FF6B35` para ações secundárias, fonte Sora, espaçamento em base 8px, cantos retos (4px) em vez de arredondados. Só o `style.css` muda para aplicar isso — nenhuma classe HTML/JS foi renomeada, então é seguro reaproveitar essa mesma paleta de tokens (`:root` no topo do CSS) em outras ferramentas internas para manter tudo padronizado.
+
 ## Empilhar múltiplos arquivos (anonimização)
 
 Na aba "Anonimizar", pode selecionar ou arrastar **mais de um arquivo de uma vez**. Eles são empilhados em um único resultado, com uma coluna extra (`Arquivo_Origem`) indicando de qual arquivo cada linha veio — e um único mapeamento (de-para) cobre tudo.
