@@ -668,6 +668,16 @@ table.data-table tr.row-revisar td { border-bottom-color: #F3C9C9; }
 
 .oculto { display: none !important; }
 
+/* Mapeamento categoria -> coluna(s) do arquivo */
+.mapeamento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 20px;
+}
+@media (max-width: 760px) { .mapeamento-grid { grid-template-columns: 1fr; } }
+.mapeamento-item .titulo-filtro { font-weight: 600; }
+
+
 .arquivo-info {
   display: flex;
   align-items: center;

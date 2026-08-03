@@ -30,6 +30,12 @@ Em outros navegadores (Firefox, Safari), a ferramenta ainda funciona, mas guarda
 
 Segue o "layout padrão Scanntech para HTML" (skill interna, mesma linha visual do "Validador de Prod & Classificações" / ScannMarket): barra azul `#054FE1` no topo com marca + título, fonte Sora, ícones Tabler Icons, cards com cantos de 12px, callouts com barra lateral colorida (azul/âmbar/vermelho). O `style.css` é o CSS oficial da skill + uma extensão própria só para os componentes que o anonimizador precisa e a skill não cobre (múltiplos arquivos, filtro multiselect, barra de progresso). Ícones e fontes (Tabler Icons em woff/woff2) ficam em `lib/`, hospedados localmente — só a fonte Sora carrega do Google Fonts (com fallback automático para Arial se bloqueado).
 
+## Mapear colunas manualmente (anonimização)
+
+A ferramenta sugere automaticamente qual coluna do seu arquivo corresponde a cada variável (fornecedor, ean, marca, sku, canal, uf, nivel1, nivel2), com base no nome. Quando o nome não é reconhecido, a etapa **"2. Confira as colunas de cada variável"** deixa você escolher manualmente qual coluna corresponde a qual variável — e não precisa preencher todas: se seu arquivo só tem, por exemplo, EAN e Fabricante, só essas duas são anonimizadas.
+
+Depois de ajustar, clique em **"Aplicar mapeamento"** para atualizar a lista de colunas e os filtros de acordo com sua escolha.
+
 ## Empilhar múltiplos arquivos (anonimização)
 
 Na aba "Anonimizar", pode selecionar ou arrastar **mais de um arquivo de uma vez**. Eles são empilhados em um único resultado, com uma coluna extra (`Arquivo_Origem`) indicando de qual arquivo cada linha veio — e um único mapeamento (de-para) cobre tudo.

@@ -282,7 +282,15 @@ function criarMultiselect(container, opcoes, rotulo) {
   });
 
   renderOpcoes();
-  return { getSelecionados: () => Array.from(selecionados) };
+  return {
+    getSelecionados: () => Array.from(selecionados),
+    selecionar: (valor) => {
+      if (!opcoes.includes(valor)) return;
+      selecionados.add(valor);
+      renderBotao();
+      renderOpcoes(busca.value);
+    },
+  };
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -539,15 +547,132 @@ async function coletarValoresUnicosMultiplos(arquivos, sep, encoding, colunasFil
   return saida;
 }
 
+const NOME_EXIBICAO_CATEGORIA = {
+  fornecedor: "Fornecedor", ean: "EAN", marca: "Marca", sku: "SKU",
+  canal: "Canal", uf: "UF", nivel1: "Nível 1", nivel2: "Nível 2",
+};
+
 function renderizarConfigAnon() {
-  const { colunasArquivo, colunasAlvo, colunasFiltro, valoresUnicos } = estado.anon;
+  const { colunasAlvo } = estado.anon;
   const bloco = document.getElementById("bloco-config-anon");
 
   if (Object.keys(colunasAlvo).length === 0) {
     document.getElementById("aviso-sem-colunas-anon").classList.remove("oculto");
-    return;
+  } else {
+    document.getElementById("aviso-sem-colunas-anon").classList.add("oculto");
   }
   bloco.classList.remove("oculto");
+
+  renderizarMapeamentoCategorias();
+  renderizarColunasEFiltros();
+
+  document.getElementById("btn-recalcular-mapeamento").onclick = recalcularAPartirDoMapeamento;
+}
+
+function renderizarMapeamentoCategorias() {
+  const { colunasArquivo, colunasAlvo } = estado.anon;
+  const colunasDisponiveis = colunasArquivo.filter((c) => c !== COLUNA_ORIGEM);
+
+  // Inverte colunasAlvo (coluna -> indice) para indice -> [colunas], para
+  // pre-selecionar a sugestao automatica em cada categoria.
+  const colunasPorIndice = {};
+  for (const [col, idx] of Object.entries(colunasAlvo)) {
+    if (!colunasPorIndice[idx]) colunasPorIndice[idx] = [];
+    colunasPorIndice[idx].push(col);
+  }
+
+  const grade = document.getElementById("grade-mapeamento-anon");
+  grade.innerHTML = "";
+  const mapeamentoMultiselects = {};
+
+  for (const [idxStr, info] of Object.entries(Core.COLUNAS_ALVO)) {
+    const idx = Number(idxStr);
+    const item = document.createElement("div");
+    item.className = "mapeamento-item";
+    grade.appendChild(item);
+
+    const ms = criarMultiselect(item, colunasDisponiveis, NOME_EXIBICAO_CATEGORIA[info.nome] || info.nome);
+    const sugeridas = colunasPorIndice[idx] || [];
+    for (const col of sugeridas) ms.selecionar(col);
+
+    mapeamentoMultiselects[idx] = ms;
+  }
+
+  estado.anon._mapeamentoMultiselects = mapeamentoMultiselects;
+}
+
+async function recalcularAPartirDoMapeamento() {
+  const btn = document.getElementById("btn-recalcular-mapeamento");
+  const erroEl = document.getElementById("erro-mapeamento-anon");
+  erroEl.classList.add("oculto");
+
+  const novoColunasAlvo = {};
+  const colunaJaUsadaEm = {};
+  for (const [idxStr, ms] of Object.entries(estado.anon._mapeamentoMultiselects)) {
+    const idx = Number(idxStr);
+    for (const col of ms.getSelecionados()) {
+      if (colunaJaUsadaEm[col] !== undefined && colunaJaUsadaEm[col] !== idx) {
+        const nomeA = NOME_EXIBICAO_CATEGORIA[Core.COLUNAS_ALVO[colunaJaUsadaEm[col]].nome];
+        const nomeB = NOME_EXIBICAO_CATEGORIA[Core.COLUNAS_ALVO[idx].nome];
+        erroEl.innerHTML = `<i class="ti ti-alert-triangle"></i> A coluna "${col}" foi selecionada para ${nomeA} e para ${nomeB} ao mesmo tempo. Cada coluna só pode corresponder a uma variável.`;
+        erroEl.classList.remove("oculto");
+        return;
+      }
+      colunaJaUsadaEm[col] = idx;
+      novoColunasAlvo[col] = idx;
+    }
+  }
+
+  estado.anon.colunasAlvo = novoColunasAlvo;
+
+  btn.disabled = true;
+  const textoOriginal = btn.innerHTML;
+  btn.innerHTML = `<span class="spinner"></span> Atualizando...`;
+
+  try {
+    const arquivos = estado.anon.arquivos;
+    const sep = document.getElementById("separador-anon").value;
+    const encoding = estado.anon.encoding;
+    const amostraPrimeiro = ehExcel(arquivos[0].name)
+      ? (await lerAmostraExcel(arquivos[0])).linhas
+      : (await lerAmostraCsv(arquivos[0], sep, encoding)).linhas;
+
+    const colunasFiltro = {};
+    for (const [col, idx] of Object.entries(novoColunasAlvo)) {
+      const nome = Core.COLUNAS_ALVO[idx].nome;
+      if (!Core.COLUNAS_FILTRAVEIS.has(nome)) continue;
+      if (Core.colunaEhNumerica(amostraPrimeiro.map((l) => l[col]))) continue;
+      colunasFiltro[col] = nome;
+    }
+    Object.assign(colunasFiltro, identificarColunasFiltroExtraDisponiveis());
+
+    const valoresUnicos = await coletarValoresUnicosMultiplos(arquivos, sep, encoding, colunasFiltro);
+    valoresUnicos[COLUNA_ORIGEM] = arquivos.map((a) => a.name);
+    colunasFiltro[COLUNA_ORIGEM] = "arquivo de origem";
+
+    estado.anon.colunasFiltro = colunasFiltro;
+    estado.anon.valoresUnicos = valoresUnicos;
+
+    renderizarColunasEFiltros();
+  } catch (err) {
+    console.error(err);
+    erroEl.innerHTML = `<i class="ti ti-alert-triangle"></i> Não foi possível atualizar: ${err.message}`;
+    erroEl.classList.remove("oculto");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = textoOriginal;
+  }
+}
+
+function identificarColunasFiltroExtraDisponiveis() {
+  // Reaproveita a mesma deteccao de filtros extra (ex: Data) usada na
+  // analise inicial, sem depender de uma categoria da tabela principal.
+  const jaMapeadas = new Set(Object.keys(estado.anon.colunasAlvo));
+  return Core.identificarColunasFiltroExtra(estado.anon.colunasArquivo, jaMapeadas);
+}
+
+function renderizarColunasEFiltros() {
+  const { colunasArquivo, colunasAlvo, colunasFiltro, valoresUnicos } = estado.anon;
 
   const grade = document.getElementById("grade-colunas-anon");
   grade.innerHTML = "";
@@ -562,7 +687,7 @@ function renderizarConfigAnon() {
     chk.id = `col_final_${col}`;
     const lbl = document.createElement("label");
     lbl.htmlFor = chk.id;
-    lbl.innerHTML = idx !== undefined ? `${col} <span class="marcador-alvo">🔒</span>` : col;
+    lbl.innerHTML = idx !== undefined ? `${col} <i class="ti ti-lock locked-mark"></i>` : col;
     item.appendChild(chk);
     item.appendChild(lbl);
     grade.appendChild(item);

@@ -47,7 +47,7 @@
       <div id="lista-arquivos-anon" class="lista-arquivos oculto"></div>
       <div id="spinner-analise-anon" class="oculto" style="margin-top:12px;"></div>
       <div id="erro-analise-anon" class="callout callout-danger oculto"></div>
-      <div id="aviso-sem-colunas-anon" class="callout callout-warning oculto"><i class="ti ti-alert-triangle"></i> Nenhuma coluna-alvo (fornecedor, ean, marca, sku, canal, uf, nivel1, nivel2) foi encontrada neste arquivo.</div>
+      <div id="aviso-sem-colunas-anon" class="callout callout-warning oculto"><i class="ti ti-alert-triangle"></i> Não reconhecemos automaticamente nenhuma coluna-alvo (fornecedor, ean, marca, sku, canal, uf, nivel1, nivel2) neste arquivo. Sem problema — selecione manualmente na etapa 2, abaixo.</div>
       <div id="aviso-tamanho-arquivo-anon" class="callout callout-warning oculto"></div>
       <div id="aviso-modo-blob-anon" class="callout callout-warning oculto"><i class="ti ti-alert-triangle"></i> Seu navegador não suporta salvar direto em disco durante o processamento — vai funcionar, mas pode ficar mais lento e usar mais memória em arquivos muito grandes. Chrome ou Edge atualizados evitam isso.</div>
 
@@ -80,8 +80,18 @@
     <div id="bloco-config-anon" class="oculto">
       <div class="panel" style="margin-bottom:16px">
         <div class="panel-head">
-          <h2>2. Colunas que vão para o arquivo final</h2>
-          <p class="panel-sub">As colunas categóricas (<i class="ti ti-lock"></i>) são sempre anonimizadas quando incluídas. Desmarque só o que você não quer no resultado.</p>
+          <h2>2. Confira as colunas de cada variável</h2>
+          <p class="panel-sub">Sugerimos a coluna certa com base no nome. Não reconhecemos? Selecione manualmente. Não precisa ter todas as variáveis — só anonimizamos o que estiver mapeado aqui.</p>
+        </div>
+        <div id="grade-mapeamento-anon" class="mapeamento-grid"></div>
+        <div id="erro-mapeamento-anon" class="callout callout-danger oculto"></div>
+        <button id="btn-recalcular-mapeamento" class="btn btn-secondary" style="margin-top:16px;"><i class="ti ti-refresh"></i> Aplicar mapeamento</button>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-head">
+          <h2>3. Colunas que vão para o arquivo final</h2>
+          <p class="panel-sub">As colunas mapeadas acima (<i class="ti ti-lock"></i>) são sempre anonimizadas quando incluídas. Desmarque só o que você não quer no resultado.</p>
         </div>
         <div class="checkbox-mestre">
           <input type="checkbox" id="chk-selecionar-todas-anon">
@@ -99,7 +109,7 @@
 
       <div class="panel">
         <div class="panel-head">
-          <h2>3. Anonimizar</h2>
+          <h2>4. Anonimizar</h2>
           <p class="panel-sub">Ao clicar, o navegador vai pedir onde salvar o arquivo anonimizado (como um "Salvar como").</p>
         </div>
         <button id="btn-iniciar-anon" class="btn btn-primary">Iniciar anonimização <i class="ti ti-arrow-right"></i></button>
