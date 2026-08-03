@@ -18,6 +18,14 @@ function ehExcel(nomeArquivo) {
   return /\.(xlsx|xls)$/i.test(nomeArquivo);
 }
 
+function obterSeparador(elementoId) {
+  // O <option value="\t"> em HTML é literalmente os caracteres barra + t
+  // (2 caracteres), não um tab de verdade (1 caractere, byte 9) -- sem essa
+  // conversão, "Tab" nunca funcionava de fato como separador.
+  const valor = document.getElementById(elementoId).value;
+  return valor === "\\t" ? "\t" : valor;
+}
+
 function formatarTempo(segundos) {
   segundos = Math.max(Math.round(segundos), 0);
   if (segundos < 60) return `${segundos}s`;
@@ -340,6 +348,15 @@ function configurarUploadAnon() {
   });
 
   document.getElementById("btn-iniciar-anon").addEventListener("click", iniciarAnonimizacao);
+
+  // Trocar separador/codificação reanalisa o(s) arquivo(s) já selecionado(s)
+  // automaticamente -- sem isso, o usuário precisava re-subir o arquivo pra
+  // uma escolha diferente ter efeito.
+  ["separador-anon", "encoding-anon"].forEach((id) => {
+    document.getElementById(id).addEventListener("change", () => {
+      if (estado.anon.arquivos.length > 0) analisarArquivosAnon();
+    });
+  });
 }
 
 function adicionarArquivosAnon(novosArquivos) {
@@ -435,7 +452,7 @@ async function analisarArquivosAnon() {
   try {
     const primeiro = arquivos[0];
     let colunas, linhasAmostra, encoding;
-    const sep = document.getElementById("separador-anon").value;
+    const sep = obterSeparador("separador-anon");
     const encSelecionado = document.getElementById("encoding-anon").value;
 
     if (ehExcel(primeiro.name)) {
@@ -449,15 +466,15 @@ async function analisarArquivosAnon() {
       colunas = r.colunas;
       linhasAmostra = r.linhas;
 
-      // Antes de seguir, confere se o resultado tem cara de separador ou
-      // codificação errados -- e, se tiver, avisa exatamente o que trocar
-      // em vez de deixar o erro estourar mais na frente.
+      // Confere se o resultado tem cara de separador ou codificação
+      // errados -- se tiver, avisa exatamente o que trocar, mas SEM
+      // bloquear o fluxo: o usuário ainda pode ajustar o mapeamento na
+      // próxima etapa, ou trocar o separador/codificação acima (o que
+      // reanalisa automaticamente).
       const textoBruto = await lerAmostraTextoBruto(primeiro, encoding);
       const diagnostico = diagnosticarLeitura(textoBruto, colunas, sep);
       if (diagnostico) {
-        spinner.classList.add("oculto");
         mostrarErroLeitura("erro-analise-anon", diagnostico.mensagem);
-        return;
       }
     }
 
@@ -631,7 +648,7 @@ async function recalcularAPartirDoMapeamento() {
 
   try {
     const arquivos = estado.anon.arquivos;
-    const sep = document.getElementById("separador-anon").value;
+    const sep = obterSeparador("separador-anon");
     const encoding = estado.anon.encoding;
     const amostraPrimeiro = ehExcel(arquivos[0].name)
       ? (await lerAmostraExcel(arquivos[0])).linhas
@@ -837,7 +854,7 @@ async function iniciarAnonimizacao() {
 
 async function processarAnonimizacao(colunasFinais, filtros, escritor) {
   const arquivos = estado.anon.arquivos;
-  const sep = document.getElementById("separador-anon").value;
+  const sep = obterSeparador("separador-anon");
   const encoding = estado.anon.encoding;
   const colunasAlvo = estado.anon.colunasAlvo;
   const colunasArquivo = estado.anon.colunasArquivo; // já inclui COLUNA_ORIGEM
@@ -1128,7 +1145,7 @@ async function iniciarDesanonimizacao() {
     const linhasMapeamento = await lerMapaCsv(estado.desanon.arquivoMapa);
     const mapaReverso = Core.construirMapaReverso(linhasMapeamento);
 
-    const sep = document.getElementById("separador-desanon").value;
+    const sep = obterSeparador("separador-desanon");
     let encoding = document.getElementById("encoding-desanon").value;
     if (encoding === "auto" && !ehExcel(file.name)) encoding = await detectarEncoding(file);
 
