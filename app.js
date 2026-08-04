@@ -26,6 +26,69 @@ function obterSeparador(elementoId) {
   return valor === "\\t" ? "\t" : valor;
 }
 
+// ---------------------------------------------------------------------------
+// Nome do arquivo de saída (baseado no nome original, não mais genérico)
+// ---------------------------------------------------------------------------
+function nomeBaseSemExtensao(nomeArquivo) {
+  return nomeArquivo.replace(/\.[^./\\]+$/, "");
+}
+
+function prefixoComumEntreNomes(nomes) {
+  if (nomes.length === 0) return "";
+  let prefixo = nomes[0];
+  for (let i = 1; i < nomes.length && prefixo; i++) {
+    const atual = nomes[i];
+    let j = 0;
+    while (j < prefixo.length && j < atual.length && prefixo[j] === atual[j]) j++;
+    prefixo = prefixo.slice(0, j);
+  }
+  return prefixo.replace(/[\s_\-.(]+$/, "");
+}
+
+function nomeSaidaAnonimizado(arquivos) {
+  const nomesBase = arquivos.map((a) => nomeBaseSemExtensao(a.name));
+  if (nomesBase.length === 1) return `${nomesBase[0]}_anonimizado.csv`;
+  let comum = prefixoComumEntreNomes(nomesBase);
+  if (comum.length < 3) comum = `${arquivos.length}_arquivos`;
+  return `${comum}_empilhado.csv`;
+}
+
+function nomeSaidaDesanonimizado(nomeOriginal, extensao) {
+  return `${nomeBaseSemExtensao(nomeOriginal)}_desanonimizado.${extensao}`;
+}
+
+// ---------------------------------------------------------------------------
+// Diretiva "sep=X" do Excel: escrita no arquivo de saída, garante que o
+// Excel já abra com cada valor na célula certa, sem precisar de "Texto
+// para colunas" manual -- funciona independente do idioma/config regional
+// do Excel de quem for abrir. Também sabemos reconhecer e remover essa
+// linha na leitura, senão nossa própria ferramenta trataria "sep=X" como
+// se fosse a primeira linha de dados ao reprocessar um arquivo já
+// anonimizado (ex: na hora de desanonimizar).
+function linhaDiretivaSep(sep) {
+  return `sep=${sep}\n`;
+}
+
+async function removerDiretivaSepSeExistir(file) {
+  if (ehExcel(file.name)) return { arquivo: file, separadorDetectado: null };
+
+  const amostraBuffer = await file.slice(0, 64).arrayBuffer();
+  const bytes = new Uint8Array(amostraBuffer);
+  // Blob.text()/TextDecoder removem o BOM automaticamente do texto
+  // decodificado, mas ele continua fisicamente presente nos BYTES do
+  // arquivo -- sem contar esses 3 bytes à parte, o corte abaixo (que usa
+  // file.slice, que opera em bytes) ficaria desalinhado.
+  const temBom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const offsetBom = temBom ? 3 : 0;
+
+  const amostraTexto = new TextDecoder("utf-8").decode(amostraBuffer);
+  const match = amostraTexto.match(/^sep=(.)\r?\n/);
+  if (!match) return { arquivo: file, separadorDetectado: null };
+
+  const arquivoLimpo = new File([file.slice(offsetBom + match[0].length)], file.name, { type: file.type });
+  return { arquivo: arquivoLimpo, separadorDetectado: match[1] };
+}
+
 function formatarTempo(segundos) {
   segundos = Math.max(Math.round(segundos), 0);
   if (segundos < 60) return `${segundos}s`;
@@ -395,11 +458,24 @@ function configurarUploadAnon() {
   });
 }
 
-function adicionarArquivosAnon(novosArquivos) {
+async function adicionarArquivosAnon(novosArquivos) {
   // Evita duplicar o mesmo arquivo (mesmo nome + tamanho) se selecionado de novo.
-  for (const novo of novosArquivos) {
+  for (let novo of novosArquivos) {
     const jaExiste = estado.anon.arquivos.some((a) => a.name === novo.name && a.size === novo.size);
-    if (!jaExiste) estado.anon.arquivos.push(novo);
+    if (jaExiste) continue;
+
+    // Se o arquivo já tiver a diretiva "sep=X" (ex: um arquivo que a
+    // própria ferramenta gerou antes), remove essa linha antes de
+    // qualquer leitura, e já ajusta o separador selecionado de acordo.
+    const { arquivo: limpo, separadorDetectado } = await removerDiretivaSepSeExistir(novo);
+    novo = limpo;
+    if (separadorDetectado) {
+      const valorSelect = separadorDetectado === "\t" ? "\\t" : separadorDetectado;
+      const select = document.getElementById("separador-anon");
+      if (Array.from(select.options).some((o) => o.value === valorSelect)) select.value = valorSelect;
+    }
+
+    estado.anon.arquivos.push(novo);
   }
   renderizarListaArquivosAnon();
   analisarArquivosAnon();
@@ -862,7 +938,7 @@ async function iniciarAnonimizacao() {
   // abri-lo em resposta direta a um gesto do usuário).
   let escritor;
   try {
-    escritor = await criarEscritorSaida("dados_anonimizados.csv");
+    escritor = await criarEscritorSaida(nomeSaidaAnonimizado(estado.anon.arquivos));
   } catch (e) {
     if (e.name === "AbortError") return; // usuário cancelou o diálogo -- só volta
     console.error(e);
@@ -910,7 +986,7 @@ async function processarAnonimizacao(colunasFinais, filtros, escritor) {
   let linhasLidas = 0;
   let linhasMantidas = 0;
   let primeiroChunk = true;
-  const promessasEscrita = [];
+  const promessasEscrita = [escritor.escrever(linhaDiretivaSep(sep))];
 
   const filtrar = Object.keys(filtros).length > 0
     ? (linha) => {
@@ -1029,11 +1105,17 @@ function configurarUploadDesanon() {
   const inputMapa = document.getElementById("upload-mapa-input");
 
   areaArquivo.addEventListener("click", () => inputArquivo.click());
-  inputArquivo.addEventListener("change", (e) => {
+  inputArquivo.addEventListener("change", async (e) => {
     if (e.target.files.length > 0) {
-      estado.desanon.arquivo = e.target.files[0];
+      const { arquivo: limpo, separadorDetectado } = await removerDiretivaSepSeExistir(e.target.files[0]);
+      estado.desanon.arquivo = limpo;
+      if (separadorDetectado) {
+        const valorSelect = separadorDetectado === "\t" ? "\\t" : separadorDetectado;
+        const select = document.getElementById("separador-desanon");
+        if (Array.from(select.options).some((o) => o.value === valorSelect)) select.value = valorSelect;
+      }
       document.getElementById("upload-desanon-info").innerHTML =
-        `<i class="ti ti-file-text"></i> <strong>${e.target.files[0].name}</strong> — ${(e.target.files[0].size / 1_048_576).toFixed(1)} MB`;
+        `<i class="ti ti-file-text"></i> <strong>${limpo.name}</strong> — ${(limpo.size / 1_048_576).toFixed(1)} MB`;
       document.getElementById("upload-desanon-info").classList.remove("oculto");
       verificarProntoDesanon();
     }
@@ -1098,10 +1180,10 @@ async function iniciarDesanonimizacaoDocumento(file) {
     let resultado, nomeSaida;
     if (ehDocx(file.name)) {
       resultado = await window.DesanonimizadorDocumentos.desanonimizarDocx(arrayBuffer, linhasMapeamento, aoProgredir);
-      nomeSaida = "documento_desanonimizado.docx";
+      nomeSaida = nomeSaidaDesanonimizado(file.name, "docx");
     } else {
       resultado = await window.DesanonimizadorDocumentos.desanonimizarPptx(arrayBuffer, linhasMapeamento, aoProgredir);
-      nomeSaida = "apresentacao_desanonimizada.pptx";
+      nomeSaida = nomeSaidaDesanonimizado(file.name, "pptx");
     }
 
     const url = URL.createObjectURL(resultado.blob);
@@ -1162,7 +1244,7 @@ async function iniciarDesanonimizacao() {
 
   let escritor;
   try {
-    escritor = await criarEscritorSaida("dados_desanonimizados.csv");
+    escritor = await criarEscritorSaida(nomeSaidaDesanonimizado(file.name, "csv"));
   } catch (e) {
     if (e.name === "AbortError") return;
     console.error(e);
@@ -1217,7 +1299,7 @@ async function iniciarDesanonimizacao() {
     const inicio = performance.now();
     let linhasProcessadas = 0;
     let primeiroChunk = true;
-    const promessasEscrita = [];
+    const promessasEscrita = [escritor.escrever(linhaDiretivaSep(sep))];
 
     function transformar(linhasBrutas) {
       linhasProcessadas += linhasBrutas.length;
