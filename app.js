@@ -784,6 +784,10 @@ async function criarEscritorSaida(nomeArquivoSugerido) {
         types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }],
       });
       const writable = await handle.createWritable();
+      // BOM UTF-8 no início -- sem isso, o Excel (e outros programas) não
+      // detecta a codificação certa e mostra acento errado, mesmo o
+      // conteúdo estando corretamente em UTF-8 por dentro.
+      await writable.write("\uFEFF");
       return {
         modo: "stream",
         async escrever(texto) {
