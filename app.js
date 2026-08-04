@@ -37,13 +37,39 @@ function formatarTempo(segundos) {
 }
 
 async function detectarEncoding(file) {
-  const tamanhoAmostra = 1_000_000;
+  const tamanhoAmostra = 700_000;
   const blobInicio = file.slice(0, tamanhoAmostra);
-  const blobFim = file.size > tamanhoAmostra ? file.slice(file.size - tamanhoAmostra, file.size) : null;
+  const blobFim = file.size > tamanhoAmostra ? file.slice(Math.max(0, file.size - 300_000), file.size) : null;
 
-  async function utf8Estrito(blob) {
-    if (!blob) return true;
-    const buffer = await blob.arrayBuffer();
+  const buffers = [await blobInicio.arrayBuffer()];
+  if (blobFim) buffers.push(await blobFim.arrayBuffer());
+
+  // Detecção estatística de codificação (mesma família de biblioteca que
+  // usamos na versão Python, chardet) -- muito mais confiável que só
+  // testar se decodifica como UTF-8 estrito, principalmente pra separar
+  // CP1252/Latin-1 de UTF-8 quando o acento é a única pista.
+  try {
+    const tamanhoTotal = buffers.reduce((s, b) => s + b.byteLength, 0);
+    const combinado = new Uint8Array(tamanhoTotal);
+    let offset = 0;
+    for (const buf of buffers) {
+      combinado.set(new Uint8Array(buf), offset);
+      offset += buf.byteLength;
+    }
+
+    const deteccao = window.Chardet ? window.Chardet.detect(combinado) : null;
+    if (deteccao) {
+      const nome = deteccao.toLowerCase();
+      if (nome.startsWith("utf-8") || nome === "ascii" || nome === "us-ascii") return "utf-8";
+      if (nome.startsWith("iso-8859") || nome.startsWith("windows-125")) return "windows-1252";
+      // Codificação exótica que não esperamos para bases BR -- cai no
+      // teste estrito abaixo em vez de arriscar um nome desconhecido.
+    }
+  } catch (e) {
+    console.error("Falha na detecção estatística de codificação, usando fallback:", e);
+  }
+
+  async function utf8Estrito(buffer) {
     try {
       new TextDecoder("utf-8", { fatal: true }).decode(buffer);
       return true;
@@ -51,8 +77,7 @@ async function detectarEncoding(file) {
       return false;
     }
   }
-
-  const ok = (await utf8Estrito(blobInicio)) && (await utf8Estrito(blobFim));
+  const ok = (await Promise.all(buffers.map(utf8Estrito))).every(Boolean);
   return ok ? "utf-8" : "windows-1252";
 }
 
