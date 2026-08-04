@@ -357,6 +357,17 @@ function configurarUploadAnon() {
       if (estado.anon.arquivos.length > 0) analisarArquivosAnon();
     });
   });
+
+  // Botão explícito, como reforço/garantia -- caso a atualização automática
+  // acima não pareça ter efeito (ex: cache de uma versão antiga da página),
+  // clicar aqui força a releitura de qualquer forma.
+  document.getElementById("btn-atualizar-leitura-anon").addEventListener("click", () => {
+    if (estado.anon.arquivos.length > 0) {
+      analisarArquivosAnon();
+    } else {
+      alert("Suba um arquivo primeiro.");
+    }
+  });
 }
 
 function adicionarArquivosAnon(novosArquivos) {
