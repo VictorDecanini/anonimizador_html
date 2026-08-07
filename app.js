@@ -8,7 +8,7 @@ const LIMITE_RECOMENDADO_TOTAL = 2 * 1024 * 1024 * 1024; // 2GB
 
 const estado = {
   anon: { arquivos: [], colunasArquivo: null, colunasAlvo: null, colunasFiltro: null, valoresUnicos: null, encoding: null },
-  desanon: { arquivo: null, mapa: null },
+  desanon: { arquivo: null, arquivosMapa: [] },
 };
 
 // ---------------------------------------------------------------------------
@@ -1138,20 +1138,59 @@ function configurarUploadDesanon() {
   });
 
   areaMapa.addEventListener("click", () => inputMapa.click());
+  areaMapa.addEventListener("dragover", (e) => { e.preventDefault(); areaMapa.classList.add("arrastando"); });
+  areaMapa.addEventListener("dragleave", () => areaMapa.classList.remove("arrastando"));
+  areaMapa.addEventListener("drop", (e) => {
+    e.preventDefault();
+    areaMapa.classList.remove("arrastando");
+    if (e.dataTransfer.files.length > 0) adicionarArquivosMapa(Array.from(e.dataTransfer.files));
+  });
   inputMapa.addEventListener("change", (e) => {
-    if (e.target.files.length > 0) {
-      estado.desanon.arquivoMapa = e.target.files[0];
-      document.getElementById("upload-mapa-info").innerHTML = `<i class="ti ti-file-text"></i> <strong>${e.target.files[0].name}</strong>`;
-      document.getElementById("upload-mapa-info").classList.remove("oculto");
-      verificarProntoDesanon();
-    }
+    if (e.target.files.length > 0) adicionarArquivosMapa(Array.from(e.target.files));
+    inputMapa.value = "";
   });
 
   document.getElementById("btn-iniciar-desanon").addEventListener("click", iniciarDesanonimizacao);
 }
 
+function adicionarArquivosMapa(novosArquivos) {
+  for (const novo of novosArquivos) {
+    const jaExiste = estado.desanon.arquivosMapa.some((a) => a.name === novo.name && a.size === novo.size);
+    if (!jaExiste) estado.desanon.arquivosMapa.push(novo);
+  }
+  renderizarListaArquivosMapa();
+  verificarProntoDesanon();
+}
+
+function removerArquivoMapa(indice) {
+  estado.desanon.arquivosMapa.splice(indice, 1);
+  renderizarListaArquivosMapa();
+  verificarProntoDesanon();
+}
+
+function renderizarListaArquivosMapa() {
+  const lista = document.getElementById("upload-mapa-info");
+  const arquivos = estado.desanon.arquivosMapa;
+  if (arquivos.length === 0) {
+    lista.classList.add("oculto");
+    lista.innerHTML = "";
+    return;
+  }
+  lista.classList.remove("oculto");
+  lista.innerHTML = "";
+  arquivos.forEach((arquivo, i) => {
+    const item = document.createElement("div");
+    item.className = "item-arquivo";
+    item.innerHTML =
+      `<span class="nome"><i class="ti ti-file-text"></i> ${arquivo.name}</span>` +
+      `<button class="remover" title="Remover">✕</button>`;
+    item.querySelector(".remover").addEventListener("click", () => removerArquivoMapa(i));
+    lista.appendChild(item);
+  });
+}
+
 function verificarProntoDesanon() {
-  const pronto = estado.desanon.arquivo && estado.desanon.arquivoMapa;
+  const pronto = estado.desanon.arquivo && estado.desanon.arquivosMapa.length > 0;
   document.getElementById("btn-iniciar-desanon").disabled = !pronto;
 }
 
@@ -1164,6 +1203,29 @@ function lerMapaCsv(file) {
       error: reject,
     });
   });
+}
+
+async function lerMapasCsv(arquivos) {
+  // Combina vários mapeamentos em um só -- necessário quando o time
+  // comercial anonimiza arquivos separados (cada um com seu próprio
+  // mapeamento) e depois junta os resultados numa análise conjunta: pra
+  // desanonimizar essa análise conjunta, precisa dos mapeamentos de todos
+  // os arquivos originais ao mesmo tempo.
+  const todasLinhas = [];
+  const vistos = new Map(); // "coluna|codigo" -> valor_original
+  const conflitos = [];
+  for (const arquivo of arquivos) {
+    const linhas = await lerMapaCsv(arquivo);
+    for (const linha of linhas) {
+      const chave = `${linha.coluna}|${linha.codigo}`;
+      if (vistos.has(chave) && vistos.get(chave) !== linha.valor_original) {
+        conflitos.push(`"${linha.codigo}" (${linha.coluna}) aponta para "${vistos.get(chave)}" em um mapeamento e "${linha.valor_original}" em outro (${arquivo.name})`);
+      }
+      vistos.set(chave, linha.valor_original);
+      todasLinhas.push(linha);
+    }
+  }
+  return { linhas: todasLinhas, conflitos };
 }
 
 function ehDocx(nome) {
@@ -1188,7 +1250,7 @@ async function iniciarDesanonimizacaoDocumento(file) {
   texto.textContent = "Lendo mapeamento...";
 
   try {
-    const linhasMapeamento = await lerMapaCsv(estado.desanon.arquivoMapa);
+    const { linhas: linhasMapeamento, conflitos } = await lerMapasCsv(estado.desanon.arquivosMapa);
 
     const aoProgredir = (fracao) => {
       barra.style.width = `${Math.round(fracao * 100)}%`;
@@ -1232,6 +1294,13 @@ async function iniciarDesanonimizacaoDocumento(file) {
 
     const detalhes = document.getElementById("detalhes-desanon");
     detalhes.innerHTML = "";
+    if (conflitos.length > 0) {
+      const avisoConflito = document.createElement("div");
+      avisoConflito.className = "callout callout-warning";
+      avisoConflito.style.marginBottom = "10px";
+      avisoConflito.innerHTML = `<i class="ti ti-alert-triangle"></i> ${conflitos.length} código(s) aparecem com valores diferentes entre os mapeamentos enviados (usado o último encontrado): ${conflitos.join("; ")}`;
+      detalhes.appendChild(avisoConflito);
+    }
     if (resultado.relatorio.naoEncontrados.size > 0) {
       const aviso = document.createElement("div");
       aviso.className = "callout callout-warning";
@@ -1295,7 +1364,12 @@ async function iniciarDesanonimizacao() {
   }
 
   try {
-    const linhasMapeamento = await lerMapaCsv(estado.desanon.arquivoMapa);
+    const { linhas: linhasMapeamento, conflitos } = await lerMapasCsv(estado.desanon.arquivosMapa);
+    if (conflitos.length > 0) {
+      mostrarErroLeitura("erro-analise-desanon", `${conflitos.length} código(s) aparecem com valores diferentes entre os mapeamentos enviados (usado o último encontrado): ${conflitos.join("; ")}`);
+      document.getElementById("erro-analise-desanon").classList.remove("callout-danger");
+      document.getElementById("erro-analise-desanon").classList.add("callout-warning");
+    }
     const mapaReverso = Core.construirMapaReverso(linhasMapeamento);
 
     const sep = obterSeparador("separador-desanon");

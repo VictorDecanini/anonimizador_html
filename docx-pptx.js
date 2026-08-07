@@ -43,10 +43,15 @@ function construirProcessadorTexto(mapaCodigoParaValor) {
   const rotulosRegex = rotulos.map((r) => r.replace(/\s+/g, "\\s+")).join("|");
 
   // Rótulo (singular/plural) + lista de números (cobre "Marca 197" e
-  // "Marcas 213, 069 e 029").
+  // "Marcas 213, 069 e 029") -- formato antigo (códigos sequenciais).
   const padraoLista = new RegExp(`\\b(${rotulosRegex})(s?)\\s+((?:\\d{1,10}(?:\\s*,\\s*|\\s+e\\s+)?)+)`, "gi");
-  // Código completo aparecendo sozinho, sem rótulo na frente.
-  const padraoCodigoBruto = /\b([1-6]\d{9})\b/g;
+  // Código completo aparecendo sozinho, sem rótulo na frente -- cobre tanto
+  // o formato numérico antigo (sequencial, 10 dígitos) quanto o novo
+  // (aleatório, 1 dígito de categoria + 11 caracteres alfanuméricos). Os
+  // dois nunca se confundem: o novo sempre tem letra ou os dígitos 2-9 no
+  // sufixo, nunca 0/1 puro por 9 posições como o antigo.
+  const padraoCodigoBrutoAntigo = /\b([1-8]\d{9})\b/g;
+  const padraoCodigoBrutoNovo = /\b([1-8][23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{11})\b/g;
 
   function resolver(rotulo, plural, numeroStr) {
     const indice = INDICE_POR_ROTULO[rotulo.toLowerCase()];
@@ -62,18 +67,23 @@ function construirProcessadorTexto(mapaCodigoParaValor) {
     return valor;
   }
 
+  function substituirCodigoBruto(texto, padrao) {
+    return texto.replace(padrao, (match, codigo) => {
+      const valor = mapaCodigoParaValor.get(codigo);
+      if (valor === undefined) return match;
+      relatorio.substituicoes.push([match, valor]);
+      return valor;
+    });
+  }
+
   function processarTexto(texto) {
     if (!texto) return texto;
     let novo = texto.replace(padraoLista, (match, rotulo, plural, bloco) => {
       const novoBloco = bloco.replace(/\d{1,10}/g, (num) => resolver(rotulo, plural, num));
       return `${rotulo}${plural} ${novoBloco}`;
     });
-    novo = novo.replace(padraoCodigoBruto, (match, codigo) => {
-      const valor = mapaCodigoParaValor.get(codigo);
-      if (valor === undefined) return match;
-      relatorio.substituicoes.push([match, valor]);
-      return valor;
-    });
+    novo = substituirCodigoBruto(novo, padraoCodigoBrutoAntigo);
+    novo = substituirCodigoBruto(novo, padraoCodigoBrutoNovo);
     return novo;
   }
 

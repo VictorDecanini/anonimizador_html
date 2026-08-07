@@ -52,6 +52,16 @@ Na aba "Anonimizar", pode selecionar ou arrastar **mais de um arquivo de uma vez
 - Suporte a Excel (.xlsx/.xls) e a CSVs em CP1252/Latin1 (acentuação)
 - Tempo observado: ~25-30s para analisar e ~90-95s para processar um arquivo de 600MB no modo de streaming (Chrome/Edge)
 
+## Código aleatório (evita colisão entre arquivos diferentes)
+
+Os códigos gerados agora são **aleatórios** (1 dígito de categoria + 11 caracteres alfanuméricos, 12 no total — ex: `3K7QXM2PLRAT`), não mais sequenciais. Isso resolve o caso do time comercial que anonimiza vários arquivos separados (cada um com seu próprio mapeamento) e depois junta os resultados numa análise conjunta: com código sequencial, dois arquivos diferentes sempre geravam os mesmos códigos (ambos começam do 1), causando colisão ao juntar os dados. Com ~3,7×10^16 combinações possíveis por categoria, colisão entre arquivos anonimizados separadamente é praticamente impossível.
+
+**Compatibilidade**: documentos Word/PowerPoint/HTML com o código antigo (numérico sequencial) continuam funcionando normalmente — a ferramenta reconhece os dois formatos ao mesmo tempo.
+
+## Múltiplos mapeamentos na desanonimização
+
+A aba "Desanonimizar" aceita **mais de um arquivo de mapeamento** de uma vez — necessário justamente para desanonimizar uma análise conjunta que juntou dados de várias anonimizações separadas. Se o mesmo código aparecer com valores diferentes em mapeamentos diferentes (o que não deveria acontecer com código aleatório, mas é verificado por segurança), a ferramenta avisa qual código e quais valores conflitantes, sem travar o processo.
+
 ## Desanonimizar Word, PowerPoint e HTML
 
 A aba "Desanonimizar" também aceita **.docx**, **.pptx** e **.html/.htm** diretamente — sobe o documento anonimizado + o mesmo CSV de referência, e a ferramenta substitui os códigos no texto, preservando a formatação (negrito, etc.) sempre que o trecho estiver dentro de uma única formatação. Reconhece 3 formas de código: completo (`Marca 3000000051`), abreviado (`Marca 197`) e em lista (`Marcas 213, 069 e 029`).

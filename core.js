@@ -262,13 +262,33 @@ function analisarAmostra(colunasArquivo, amostraLinhas) {
 // ---------------------------------------------------------------------------
 // Anonimização (mapeamento incremental, mesmo esquema de código do app.py)
 // ---------------------------------------------------------------------------
+// Alfabeto sem caracteres ambíguos (sem 0/O, sem 1/I) -- ~32 símbolos.
+// Código final: 1 dígito de categoria (1-8) + 11 caracteres aleatórios
+// deste alfabeto = 12 caracteres, 32^11 (~3,7×10^16) combinações por
+// categoria. Substituiu o esquema sequencial antigo (idx*BASE + contador)
+// porque, quando o time comercial anonimiza vários arquivos separados e
+// depois junta os resultados numa análise conjunta, códigos sequenciais
+// SEMPRE colidem entre arquivos diferentes (ambos começam do 1) -- com
+// código aleatório desse tamanho, colisão entre arquivos é praticamente
+// impossível.
+const ALFABETO_CODIGO = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+const TAMANHO_SUFIXO_ALEATORIO = 11;
+
+function gerarSufixoAleatorio() {
+  let s = "";
+  for (let i = 0; i < TAMANHO_SUFIXO_ALEATORIO; i++) {
+    s += ALFABETO_CODIGO[Math.floor(Math.random() * ALFABETO_CODIGO.length)];
+  }
+  return s;
+}
+
 class MapeadorAnonimizacao {
   constructor() {
     this.mapas = {}; // idx -> Map(chaveNormalizada -> codigo)
-    this.proximoSeq = {};
+    this.codigosUsados = {}; // idx -> Set(codigo) -- evita colisão dentro do mesmo arquivo
     for (const idx of Object.keys(COLUNAS_ALVO)) {
       this.mapas[idx] = new Map();
-      this.proximoSeq[idx] = 1;
+      this.codigosUsados[idx] = new Set();
     }
   }
 
@@ -283,9 +303,12 @@ class MapeadorAnonimizacao {
     const mapa = this.mapas[idx];
     let codigo = mapa.get(chave);
     if (codigo === undefined) {
-      codigo = idx * BASE_INDICE + this.proximoSeq[idx];
+      const usados = this.codigosUsados[idx];
+      do {
+        codigo = `${idx}${gerarSufixoAleatorio()}`;
+      } while (usados.has(codigo));
+      usados.add(codigo);
       mapa.set(chave, codigo);
-      this.proximoSeq[idx] += 1;
     }
     return codigo;
   }

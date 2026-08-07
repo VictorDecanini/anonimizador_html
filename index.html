@@ -146,12 +146,13 @@
       </div>
 
       <h3>1. Mapeamento (referência)</h3>
+      <p class="field-hint">Pode subir mais de um mapeamento — útil quando o arquivo final junta dados de várias anonimizações separadas.</p>
       <div id="upload-mapa-area" class="dropzone" style="margin-bottom:20px">
         <i class="ti ti-upload"></i>
-        <span><strong>Clique ou arraste o CSV de referência aqui</strong></span>
+        <span><strong>Clique ou arraste um ou mais CSVs de referência aqui</strong></span>
       </div>
-      <div id="upload-mapa-info" class="arquivo-info oculto"></div>
-      <input type="file" id="upload-mapa-input" accept=".csv" hidden>
+      <div id="upload-mapa-info" class="lista-arquivos oculto"></div>
+      <input type="file" id="upload-mapa-input" accept=".csv" multiple hidden>
 
       <h3>2. Arquivo a desanonimizar</h3>
       <div id="upload-desanon-area" class="dropzone">
