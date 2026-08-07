@@ -17,6 +17,9 @@ const estado = {
 function ehExcel(nomeArquivo) {
   return /\.(xlsx|xls)$/i.test(nomeArquivo);
 }
+function ehCsvOuTxt(nomeArquivo) {
+  return /\.(csv|txt)$/i.test(nomeArquivo);
+}
 
 function obterSeparador(elementoId) {
   // O <option value="\t"> em HTML é literalmente os caracteres barra + t
@@ -1107,7 +1110,20 @@ function configurarUploadDesanon() {
   areaArquivo.addEventListener("click", () => inputArquivo.click());
   inputArquivo.addEventListener("change", async (e) => {
     if (e.target.files.length > 0) {
-      const { arquivo: limpo, separadorDetectado } = await removerDiretivaSepSeExistir(e.target.files[0]);
+      const arquivoOriginal = e.target.files[0];
+      const erroFormato = document.getElementById("erro-formato-desanon");
+
+      if (!ehCsvOuTxt(arquivoOriginal.name) && !ehExcel(arquivoOriginal.name) && !ehDocx(arquivoOriginal.name) && !ehPptx(arquivoOriginal.name) && !ehHtml(arquivoOriginal.name)) {
+        estado.desanon.arquivo = null;
+        document.getElementById("upload-desanon-info").classList.add("oculto");
+        erroFormato.innerHTML = `<i class="ti ti-alert-triangle"></i> Esse formato de arquivo não é suportado aqui. Formatos aceitos: CSV, TXT, Excel, Word, PowerPoint e HTML.`;
+        erroFormato.classList.remove("oculto");
+        verificarProntoDesanon();
+        return;
+      }
+      erroFormato.classList.add("oculto");
+
+      const { arquivo: limpo, separadorDetectado } = await removerDiretivaSepSeExistir(arquivoOriginal);
       estado.desanon.arquivo = limpo;
       if (separadorDetectado) {
         const valorSelect = separadorDetectado === "\t" ? "\\t" : separadorDetectado;
@@ -1156,6 +1172,9 @@ function ehDocx(nome) {
 function ehPptx(nome) {
   return /\.pptx$/i.test(nome);
 }
+function ehHtml(nome) {
+  return /\.html?$/i.test(nome);
+}
 
 async function iniciarDesanonimizacaoDocumento(file) {
   const btn = document.getElementById("btn-iniciar-desanon");
@@ -1170,23 +1189,35 @@ async function iniciarDesanonimizacaoDocumento(file) {
 
   try {
     const linhasMapeamento = await lerMapaCsv(estado.desanon.arquivoMapa);
-    const arrayBuffer = await file.arrayBuffer();
 
     const aoProgredir = (fracao) => {
       barra.style.width = `${Math.round(fracao * 100)}%`;
       texto.textContent = `Processando documento... ${Math.round(fracao * 100)}%`;
     };
 
-    let resultado, nomeSaida;
-    if (ehDocx(file.name)) {
-      resultado = await window.DesanonimizadorDocumentos.desanonimizarDocx(arrayBuffer, linhasMapeamento, aoProgredir);
-      nomeSaida = nomeSaidaDesanonimizado(file.name, "docx");
+    let resultado, nomeSaida, blob;
+    if (ehHtml(file.name)) {
+      texto.textContent = "Lendo arquivo HTML...";
+      const encSelecionado = document.getElementById("encoding-desanon").value;
+      const encoding = encSelecionado === "auto" ? await detectarEncoding(file) : encSelecionado;
+      const buffer = await file.arrayBuffer();
+      const textoHtml = new TextDecoder(encoding).decode(buffer);
+      resultado = await window.DesanonimizadorDocumentos.desanonimizarHtml(textoHtml, linhasMapeamento);
+      nomeSaida = nomeSaidaDesanonimizado(file.name, file.name.match(/\.htm$/i) ? "htm" : "html");
+      blob = new Blob(["\uFEFF" + resultado.html], { type: "text/html;charset=utf-8" });
     } else {
-      resultado = await window.DesanonimizadorDocumentos.desanonimizarPptx(arrayBuffer, linhasMapeamento, aoProgredir);
-      nomeSaida = nomeSaidaDesanonimizado(file.name, "pptx");
+      const arrayBuffer = await file.arrayBuffer();
+      if (ehDocx(file.name)) {
+        resultado = await window.DesanonimizadorDocumentos.desanonimizarDocx(arrayBuffer, linhasMapeamento, aoProgredir);
+        nomeSaida = nomeSaidaDesanonimizado(file.name, "docx");
+      } else {
+        resultado = await window.DesanonimizadorDocumentos.desanonimizarPptx(arrayBuffer, linhasMapeamento, aoProgredir);
+        nomeSaida = nomeSaidaDesanonimizado(file.name, "pptx");
+      }
+      blob = resultado.blob;
     }
 
-    const url = URL.createObjectURL(resultado.blob);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = nomeSaida;
@@ -1236,7 +1267,7 @@ async function iniciarDesanonimizacaoDocumento(file) {
 async function iniciarDesanonimizacao() {
   const file = estado.desanon.arquivo;
 
-  if (ehDocx(file.name) || ehPptx(file.name)) {
+  if (ehDocx(file.name) || ehPptx(file.name) || ehHtml(file.name)) {
     return iniciarDesanonimizacaoDocumento(file);
   }
 

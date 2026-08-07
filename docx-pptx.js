@@ -223,9 +223,62 @@ async function desanonimizarPptx(arrayBuffer, linhasMapeamento, aoProgredir) {
   return { blob, relatorio, numImagens, numGraficos: nomesCharts.length, graficosAtualizados };
 }
 
+// ---------------------------------------------------------------------------
+// HTML -- mais simples que docx/pptx: é texto puro, não um ZIP. Usa o
+// DOMParser nativo do navegador em vez do JSZip.
+// ---------------------------------------------------------------------------
+async function desanonimizarHtml(textoHtml, linhasMapeamento) {
+  const mapa = construirMapaCodigoParaValor(linhasMapeamento);
+  const { processarTexto, relatorio } = construirProcessadorTexto(mapa);
+
+  const doc = new DOMParser().parseFromString(textoHtml, "text/html");
+
+  // Percorre todos os nós de texto do documento (head + body), exceto
+  // dentro de <script>/<style>, onde texto não é conteúdo visível.
+  const walker = document.createTreeWalker(doc.documentElement, NodeFilter.SHOW_TEXT, {
+    acceptNode(no) {
+      const tag = no.parentElement && no.parentElement.tagName;
+      return tag === "SCRIPT" || tag === "STYLE" ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nos = [];
+  let atual;
+  while ((atual = walker.nextNode())) nos.push(atual);
+
+  // 1) tentativa nó a nó -- preserva a estrutura (tags, formatação) sempre
+  // que o trecho a substituir está contido em um único nó de texto.
+  for (const no of nos) {
+    const original = no.textContent;
+    const novo = processarTexto(original);
+    if (novo !== original) no.textContent = novo;
+  }
+
+  // 2) fallback: agrupa por elemento pai direto (ex: texto quebrado entre
+  // duas tags <b> dentro do mesmo <p>) e reprocessa concatenado; se ainda
+  // mudar, aplica no primeiro nó e limpa os demais desse grupo.
+  const gruposPorPai = new Map();
+  for (const no of nos) {
+    if (!gruposPorPai.has(no.parentNode)) gruposPorPai.set(no.parentNode, []);
+    gruposPorPai.get(no.parentNode).push(no);
+  }
+  for (const filhos of gruposPorPai.values()) {
+    if (filhos.length < 2) continue;
+    const textoAtual = filhos.map((n) => n.textContent).join("");
+    const textoNovo = processarTexto(textoAtual);
+    if (textoNovo !== textoAtual) {
+      filhos[0].textContent = textoNovo;
+      for (let i = 1; i < filhos.length; i++) filhos[i].textContent = "";
+    }
+  }
+
+  const temDoctype = /^\s*<!doctype/i.test(textoHtml);
+  const htmlFinal = (temDoctype ? "<!DOCTYPE html>\n" : "") + doc.documentElement.outerHTML;
+  return { html: htmlFinal, relatorio };
+}
+
 if (typeof window !== "undefined") {
-  window.DesanonimizadorDocumentos = { desanonimizarDocx, desanonimizarPptx };
+  window.DesanonimizadorDocumentos = { desanonimizarDocx, desanonimizarPptx, desanonimizarHtml };
 }
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { desanonimizarDocx, desanonimizarPptx, construirProcessadorTexto, construirMapaCodigoParaValor };
+  module.exports = { desanonimizarDocx, desanonimizarPptx, desanonimizarHtml, construirProcessadorTexto, construirMapaCodigoParaValor };
 }

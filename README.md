@@ -52,25 +52,25 @@ Na aba "Anonimizar", pode selecionar ou arrastar **mais de um arquivo de uma vez
 - Suporte a Excel (.xlsx/.xls) e a CSVs em CP1252/Latin1 (acentuação)
 - Tempo observado: ~25-30s para analisar e ~90-95s para processar um arquivo de 600MB no modo de streaming (Chrome/Edge)
 
-## Desanonimizar Word e PowerPoint
+## Desanonimizar Word, PowerPoint e HTML
 
-A aba "Desanonimizar" também aceita **.docx** e **.pptx** diretamente — sobe o documento anonimizado + o mesmo CSV de referência, e a ferramenta substitui os códigos no texto, preservando a formatação (negrito, etc.) sempre que o trecho estiver dentro de uma única formatação. Reconhece 3 formas de código: completo (`Marca 3000000051`), abreviado (`Marca 197`) e em lista (`Marcas 213, 069 e 029`).
+A aba "Desanonimizar" também aceita **.docx**, **.pptx** e **.html/.htm** diretamente — sobe o documento anonimizado + o mesmo CSV de referência, e a ferramenta substitui os códigos no texto, preservando a formatação (negrito, etc.) sempre que o trecho estiver dentro de uma única formatação. Reconhece 3 formas de código: completo (`Marca 3000000051`), abreviado (`Marca 197`) e em lista (`Marcas 213, 069 e 029`).
 
-Em PowerPoint, também atualiza categorias e nomes de série de **gráficos nativos** (não os salvos como imagem).
+Em PowerPoint, também atualiza categorias e nomes de série de **gráficos nativos** (não os salvos como imagem). Em HTML, o texto dentro de `<script>` e `<style>` nunca é tocado (não é conteúdo visível).
 
 **Limitações conhecidas:**
-- **PDF não é suportado.** O formato guarda texto por posição de caractere, sem uma estrutura de parágrafo real como Word/PowerPoint — trocar um código por um texto de tamanho diferente arrisca desalinhar o documento inteiro. Por isso, optamos por não implementar em vez de arriscar um resultado quebrado.
+- **PDF não é suportado.** O formato guarda texto por posição de caractere, sem uma estrutura de parágrafo real como Word/PowerPoint/HTML — trocar um código por um texto de tamanho diferente arrisca desalinhar o documento inteiro. Se você subir um formato não suportado, a ferramenta avisa antes de tentar processar.
 - Números soltos sem o rótulo da categoria por perto (ex: só "029" sem "Marca" na frente) não são resolvidos automaticamente.
 - Texto **dentro de imagens** (ex: um gráfico salvo como figura, print de tela) não é substituído — só texto real e gráficos nativos.
 
 ## Estrutura dos arquivos
 
 - `index.html` — estrutura da página
-- `style.css` — visual (mesma identidade executiva do app Streamlit: navy + azul Scanntech)
+- `style.css` — visual (layout padrão Scanntech)
 - `core.js` — lógica de anonimização de CSV/Excel (portada e testada a partir da versão Python)
-- `docx-pptx.js` — lógica de desanonimização de Word/PowerPoint
+- `docx-pptx.js` — lógica de desanonimização de Word, PowerPoint e HTML
 - `app.js` — interface: upload, análise automática, filtros, barra de progresso, gravação em streaming
-- `lib/` — bibliotecas de terceiros (PapaParse para CSV, SheetJS para Excel, JSZip para Word/PowerPoint), incluídas localmente para não depender de nenhum serviço externo no ar
+- `lib/` — bibliotecas de terceiros (PapaParse para CSV, SheetJS para Excel, JSZip para Word/PowerPoint, chardet para detecção de codificação, Tabler Icons), incluídas localmente para não depender de nenhum serviço externo no ar
 
 ## Limitações conhecidas (anonimização)
 

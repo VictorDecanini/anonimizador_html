@@ -156,10 +156,11 @@
       <h3>2. Arquivo a desanonimizar</h3>
       <div id="upload-desanon-area" class="dropzone">
         <i class="ti ti-upload"></i>
-        <span><strong>Clique ou arraste o arquivo anonimizado aqui</strong><br>CSV, TXT, Excel (.xlsx/.xls), Word (.docx) ou PowerPoint (.pptx) — PDF ainda não é suportado</span>
+        <span><strong>Clique ou arraste o arquivo anonimizado aqui</strong><br>CSV, TXT, Excel (.xlsx/.xls), Word (.docx), PowerPoint (.pptx) ou HTML (.html)</span>
       </div>
       <div id="upload-desanon-info" class="arquivo-info oculto"></div>
-      <input type="file" id="upload-desanon-input" accept=".csv,.txt,.xlsx,.xls,.docx,.pptx" hidden>
+      <div id="erro-formato-desanon" class="callout callout-danger oculto"></div>
+      <input type="file" id="upload-desanon-input" accept=".csv,.txt,.xlsx,.xls,.docx,.pptx,.html,.htm" hidden>
 
       <details class="opcoes-avancadas">
         <summary><i class="ti ti-settings"></i> Opções avançadas (separador e codificação)</summary>
